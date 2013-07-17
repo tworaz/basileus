@@ -220,8 +220,8 @@ div.footer-wrapper
 {
 	box-sizing: border-box;
 	-moz-box-sizing: border-box;
-	padding-left: 8px;
-	padding-right: 8px;
+	padding-left: 4px;
+	padding-right: 4px;
 }
 
 /* =================== Top Panel =================== */
@@ -405,7 +405,7 @@ div#progress-time
 {
 	position: absolute;
 	top: 8px;
-	left: 8px;
+	left: 0px;
 	right: 44px;
 }
 
@@ -434,7 +434,7 @@ div.playlist-item-text-wrapper
 {
 	position: absolute;
 	top: 0.2em;
-	left: 8px;
+	left: 0px;
 	right: 44px;
 }
 
@@ -467,24 +467,23 @@ div.playlist-row div
 
 .playlist-track-col
 {
-	text-align: left;
-	width: 5%;
+	width: 4%;
 }
 
 @media all and (min-width: 1200px) {
 	.playlist-title-col
 	{
-		width: 35%;
+		width: 36%;
 	}
 
 	.playlist-album-col
 	{
-		width: 25%;
+		width: 30%;
 	}
 
 	.playlist-artist-col
 	{
-		width: 25%;
+		width: 20%;
 	}
 
 	div.playlist-length-col
@@ -496,7 +495,7 @@ div.playlist-row div
 @media all and (max-width: 1199px) {
 	.playlist-title-col
 	{
-		width: 75%;
+		width: 76%;
 	}
 
 	.playlist-album-col
@@ -515,6 +514,11 @@ div.playlist-row div
 	{
 		width: 20%;
 	}
+}
+
+#playlist-items div.playlist-title-col
+{
+	text-align: left;
 }
 
 i.remove-song

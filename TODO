@@ -1,0 +1,28 @@
+WebUI:
+* Volume control
+* Handle media error conditions
+* Application info view
+* Add button tooltips
+* Stor application state (playlist, currently played song, toggle button states)
+
+Server:
+* get rid of libdaemon?
+* add initscripts for systemd and openrc
+* find/implement small footprint taglib alternative (ogg/mp3 only?)
+* Add proper cmake install target
+* Make more of config.h variables configurable via cmake
+* Handle long query parameters on webserver.c (marked with XXX)
+* Support keep-alive connections
+* Alternative to mongoose?
+* Check for resource leaks.
+* Investigate music db scan perforamance (inefficient usage of sqlite INSERT?)
+* Add support for HTTPS
+* Add some sort of authentication mechanism
+* Use inotify/kqueue to watch music directories
+* Test add support for BSDs and other possible target OSes
+
+Misc:
+* Add ChangeLog and AUTHORS file.
+* Add documentation (README)
+* Cleanup and document default configuration file
+* License for WebUI?

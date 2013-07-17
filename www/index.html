@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+	<head>
+	  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<title>Basileus music player</title>
+		<link rel="Shortcut icon" href="favicon.ico" />
+		<link rel="stylesheet" type="text/css" href="basileus.css"/>
+		<link rel="stylesheet" href="font-awesome/css/font-awesome.min.css">
+		<script type="text/javascript" src="javascript/core.js"></script>
+		<script type="text/javascript" src="javascript/ui.js"></script>
+	</head>
+	<body onload="UI.OnLoad();">
+		<div class="main-wrapper rounded-box">
+
+			<audio id="audio-player"></audio>
+
+			<div class="rounded-box top-panel-wrapper">
+				<div class="logo-image"></div>
+				<div class="playback-buttons-wrapper">
+					<i class="button control-panel-button icon-fast-backward" onclick="UI.Prev();"></i>
+					<i id="play-pause-button" class="button control-panel-button icon-play" onclick="UI.Play();"></i>
+					<i class="button control-panel-button icon-fast-forward" onclick="UI.Next();"></i>
+				</div>
+				<div class="progress-bar-wrapper">
+					<div id="now-playing" class="top-title-bar">Basileus HTML5 music player</div>
+					<div id="progress-bar-outline">
+						<div id="progress-bar" class="progress-bar"></div>
+						<div id="buffered-bar" class="progress-bar buffered-bar"></div>
+						<div id="seek-preview" class="seek-time-box">00:00</div>
+					</div>
+					<div id="progress-time">0:00</div>
+				</div>
+			</div>
+
+			<div class="media-playlist-wrapper">
+
+				<div class="media-browser-wrapper rounded-box">
+					<div id="media-browser-header" class="header"></div>
+					<div id="media-browser"></div>
+				</div>
+
+				<div class="playlist-wrapper rounded-box">
+
+					<div class="header playlist-header rounded-box">
+						<div class="playlist-header-text-wrapper">
+							<div class="playlist-track-col">#</div>
+							<div class="playlist-title-col">Title</div>
+							<div class="playlist-album-col">Album</div>
+							<div class="playlist-artist-col">Artist</div>
+							<div class="playlist-length-col">Length</div>
+						</div>
+						<div class="playlist-header-button-wrapper">
+							<i class="button icon-trash clear-playlist" onclick="UI.ClearPlaylist();"></i>
+						</div>
+					</div>
+
+					<div id="playlist-items"></div>
+				</div>
+			</div>
+
+			<div class="footer-wrapper rounded-box">
+				<div class="footer-text conn-status">
+					<div>Server Status: <span id="server-status"></span></div>
+				</div>
+				<div class="footer-icons">
+					<i id="toggle-repeat" class="icon-repeat button-toggle button-toggle-inactive" onclick="UI.ToggleRepeat();"></i>
+					<i id="toggle-random" class="icon-random button-toggle button-toggle-inactive" onclick="UI.ToggleRandom();"></i>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>

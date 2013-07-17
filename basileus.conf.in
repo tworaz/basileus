@@ -1,0 +1,9 @@
+# Configuration file for basileus music player
+
+#listening-ports = "localhost:8081"
+
+document-root = "../www"
+mongoose-threads = "4"
+
+music-dirs = { "/home/tworaz/music" }
+database-file = "basileus.sqlite3"

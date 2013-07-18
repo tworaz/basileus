@@ -27,77 +27,26 @@
  * SUCH DAMAGE.
  */
 
-#include <stdio.h>
-#include <unistd.h>
+#ifndef _BASILEUS_H_
+#define _BASILEUS_H_
 
-#include "basileus.h"
-#include "logger.h"
-#include "config.h"
+typedef void * basileus_t;
 
-static void
-print_version()
-{
-	printf("Basileus version %d.%d\n", BASILEUS_VERSION_MAJOR, BASILEUS_VERSION_MINOR);
-}
+typedef enum {
+	TERMINATE,
+	REFRESH_MUSIC_DB,
+} basileus_action_t;
 
-static void
-print_help(const char *progname)
-{
-	printf("Usage: %s [options]\n"
-	       "  Available options:\n"
-	       "  -c <file>   Read program configuration from specified file\n"
-	       "  -h          Show application help\n"
-#ifdef _DEBUG
-	       "  -t          Enable trace logs\n"
-#endif
-	       "  -v          Print application version and exit\n",
-	      progname);
-}
+basileus_t
+basileus_init(const char *config_path);
 
-int main(int argc, char **argv)
-{
-	const char *cfg_file_path = NULL;
-	basileus_t bhnd;
-	int opt;
+void
+basileus_shutdown(basileus_t);
 
-#ifndef _DEBUG
-#define _GETOPT_OPTSTR "c:hv"
-#else
-#define _GETOPT_OPTSTR "c:htv"
-#endif
+int
+basileus_run(basileus_t);
 
-	while ((opt = getopt(argc, argv, _GETOPT_OPTSTR)) != -1) {
-		switch (opt) {
-		case 'c':
-			cfg_file_path = optarg;
-			if (access(cfg_file_path, R_OK) != 0) {
-				log_error("Specified configuration file does not exist or is not readable!");
-				return 1;
-			}
-			break;
-		case 'v':
-			print_version();
-			return 0;
-#ifdef _DEBUG
-		case 't':
-			logger_show_trace = 1;
-			break;
-#endif
-		case 'h':
-		default:
-			print_help(argv[0]);
-			return 0;
-		}
-	}
+void
+basileus_trigger_action(basileus_action_t);
 
-	if ((bhnd = basileus_init(cfg_file_path)) == NULL) {
-		log_error("Failed to start basileus!");
-		return 1;
-	}
-
-	basileus_run(bhnd);
-
-	basileus_shutdown(bhnd);
-
-	return 0;
-}
+#endif /* !_BASILEUS_H_ */

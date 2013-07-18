@@ -40,4 +40,7 @@
 #define DEFAULT_LISTENING_PORTS "127.0.0.1:8085"
 #define DEFAULT_MONGOOSE_THREADS "4"
 
+#define likely(x)       __builtin_expect((x),1)
+#define unlikely(x)     __builtin_expect((x),0)
+
 #endif /* !CONFIG_H */

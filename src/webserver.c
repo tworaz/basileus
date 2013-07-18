@@ -30,10 +30,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <libdaemon/dlog.h>
-
 #include "webserver.h"
 #include "mongoose.h"
+#include "logger.h"
 
 typedef struct {
 	struct mg_context   *ctx;
@@ -46,7 +45,7 @@ static int
 _log_message(const struct mg_connection *conn, const char *message)
 {
 	(void)conn;
-	daemon_log(LOG_INFO, "%s", message);
+	log_info(message);
 	return 1;
 }
 
@@ -198,6 +197,7 @@ _begin_request(struct mg_connection *conn)
 	} else if (strncmp(rqi->uri, "/stream", 7) == 0) {
 		return _handle_stream(conn, ws->music_db, rqi->query_string);
 	} else {
+		log_trace("File request: %s", rqi->uri);
 		return 0;
 	}
 
@@ -211,7 +211,7 @@ webserver_init(cfg_t *cfg, music_db_t *db)
 
 	ws = malloc(sizeof(_webserver_t));
 	if (ws == NULL) {
-		daemon_log(LOG_ERR, "Failed to allocate memory for webserver!");
+		log_error("Failed to allocate memory for webserver!");
 		return NULL;
 	}
 	memset(ws, 0, sizeof(_webserver_t));
@@ -233,12 +233,12 @@ webserver_init(cfg_t *cfg, music_db_t *db)
 
 	ws->ctx = mg_start(&ws->cbs, ws, mg_opts);
 	if (ws->ctx == NULL) {
-		daemon_log(LOG_ERR, "Failed to start mongoose!");
+		log_error("Failed to start mongoose!");
 		free(ws);
 		return NULL;
 	}
 
-	daemon_log(LOG_INFO, "Mongoose %s started", mg_version());
+	log_info("Mongoose %s started", mg_version());
 
 	return ws;
 }

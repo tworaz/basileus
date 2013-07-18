@@ -41,8 +41,8 @@
 
 #include <tag_c.h>
 #include <sqlite3.h>
-#include <libdaemon/dlog.h>
 
+#include "logger.h"
 #include "music_db.h"
 #include "mongoose.h"
 #include "configuration.h"
@@ -79,19 +79,17 @@ music_db_add_file(_music_db_t *mdb, const char *path)
 	int ret = 0;
 
 	if ((file = taglib_file_new(path)) == NULL || !taglib_file_is_valid(file)) {
-#ifdef _DEBUG
-		daemon_log(LOG_WARNING, "Skipping unrecoginzed file type: %s", path);
-#endif
+		log_warning("Skipping unrecoginzed file type: %s", path);
 		return 0;
 	}
 
 	if ((tag = taglib_file_tag(file)) == NULL) {
-		daemon_log(LOG_WARNING, "Could not read %s tags, skipping ...", path);
+		log_warning("Could not read %s tags, skipping ...", path);
 		goto finish;
 	}
 
 	if ((props = taglib_file_audioproperties(file)) == NULL) {
-		daemon_log(LOG_WARNING, "Could not read %s audio properties, skipping ...", path);
+		log_warning("Could not read %s audio properties, skipping ...", path);
 		goto finish;
 	}
 
@@ -135,7 +133,7 @@ music_db_add_file(_music_db_t *mdb, const char *path)
 	} while (0);
 
 	if (!done) {
-		daemon_log(LOG_ERR, "Adding %s to music database failed: %s", path, sqlite3_errmsg(mdb->db));
+		log_error("Adding %s to music database failed: %s", path, sqlite3_errmsg(mdb->db));
 		ret = 1;
 	}
 
@@ -159,12 +157,12 @@ music_db_scan_directory(_music_db_t *mdb, const char *dir)
 	int ret = 0, len = 0, name_max = 0;
 
 	if (lstat(dir, &st) != 0) {
-		daemon_log(LOG_WARNING, "Failed to stat %s: %s", dir, strerror(errno));
+		log_warning("Failed to stat %s: %s", dir, strerror(errno));
 		return 0;
 	}
 
 	if (!S_ISDIR(st.st_mode)) {
-		daemon_log(LOG_WARNING, "Failed to scan %s: Not a directory", dir);
+		log_warning("Failed to scan %s: Not a directory", dir);
 		return 0;
 	}
 
@@ -175,16 +173,16 @@ music_db_scan_directory(_music_db_t *mdb, const char *dir)
 
 	dirent_buf = malloc(offsetof(struct dirent, d_name) + name_max + 1);
 	if (dirent_buf == NULL) {
-		daemon_log(LOG_ERR, "Failed to allocate dirent buffer!");
+		log_error("Failed to allocate dirent buffer!");
 		return 1;
 	}
 
 	if ((dirp = opendir(dir)) == NULL) {
-		daemon_log(LOG_WARNING, "Failed to open %s: %s", dir, strerror(errno));
+		log_warning("Failed to open %s: %s", dir, strerror(errno));
 		return 1;
 	}
 
-	daemon_log(LOG_INFO, "Scanning directory: %s", dir);
+	log_info("Scanning directory: %s", dir);
 
 	while (0 == readdir_r(dirp, dirent_buf, &entry) && entry != NULL) {
 		if ((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0)) {
@@ -194,7 +192,7 @@ music_db_scan_directory(_music_db_t *mdb, const char *dir)
 		len = strlen(dir) + strlen(entry->d_name) + 2;
 		full_path = (char *) malloc(len);
 		if (full_path == NULL) {
-			daemon_log(LOG_ERR, "Failed to allocate buffer for path!");
+			log_error("Failed to allocate buffer for path!");
 			ret = ENOMEM;
 			break;
 		}
@@ -216,7 +214,7 @@ music_db_scan_directory(_music_db_t *mdb, const char *dir)
 		full_path = NULL;
 
 		if ((ret = pthread_mutex_lock(&mdb->scan_mutex))) {
-			daemon_log(LOG_ERR, "Failed to lock scan mutex: %d!", ret);
+			log_error("Failed to lock scan mutex: %d!", ret);
 			break;
 		}
 		if (mdb->scan_terminate) {
@@ -225,7 +223,7 @@ music_db_scan_directory(_music_db_t *mdb, const char *dir)
 			break;
 		}
 		if ((ret = pthread_mutex_unlock(&mdb->scan_mutex))) {
-			daemon_log(LOG_CRIT, "Failed to unlock scan mutex: %d!", ret);
+			log_error("Failed to unlock scan mutex: %d!", ret);
 			exit(ret);
 		}
 	}
@@ -258,7 +256,7 @@ music_db_scan_thread(void *data)
 		if (ret == EINTR) {
 			break;
 		} else if (ret) {
-			daemon_log(LOG_WARNING, "Failed to scan music directory: %s", dir);
+			log_warning("Failed to scan music directory: %s", dir);
 		}
 	}
 
@@ -267,20 +265,20 @@ music_db_scan_thread(void *data)
 	pthread_mutex_unlock(&mdb->scan_mutex);
 
 	if (ret == EINTR) {
-		daemon_log(LOG_WARNING, "Music collection scan interrupted.");
+		log_warning("Music collection scan interrupted.");
 	} else {
-		daemon_log(LOG_INFO, "Music collection scan complete.");
+		log_info("Music collection scan complete.");
 	}
 
 	pthread_exit(0);
 }
 
-#if 0
-void
-music_db_sqlite_trace(void *d, const char *txt)
+#ifdef _DEBUG
+static void
+_sqlite3_profile(void *d, const char *txt, sqlite3_uint64 time)
 {
 	(void)d;
-	daemon_log(LOG_INFO, "%s", txt);
+	log_trace("[SQLITE3 profile] time: %u ms, statement: %s", time / 1000000, txt);
 }
 #endif
 
@@ -291,45 +289,45 @@ music_db_init(cfg_t *cfg)
 	char *errmsg;
 
 	if (!sqlite3_threadsafe()) {
-		daemon_log(LOG_ERR, "Sqlite3 is not thread safe, terminating!");
+		log_error("Sqlite3 is not thread safe, terminating!");
 		return NULL;
 	}
 
 	if (SQLITE_OK != sqlite3_config(SQLITE_CONFIG_SERIALIZED)) {
-		daemon_log(LOG_ERR, "Failed to enable sqlite3 serialization!");
+		log_error("Failed to enable sqlite3 serialization!");
 		return NULL;
 	}
 
 	if (SQLITE_OK != sqlite3_initialize()) {
-		daemon_log(LOG_ERR, "Failed to initialize sqlite3!");
+		log_error("Failed to initialize sqlite3!");
 		return NULL;
 	}
 
 	mdb = (_music_db_t *)malloc(sizeof(_music_db_t));
 	if (!mdb) {
-		daemon_log(LOG_ERR, "Failed to allocate music database structure!");
+		log_error("Failed to allocate music database structure!");
 		return NULL;
 	}
 	memset(mdb, 0, sizeof(_music_db_t));
 
 	if (pthread_mutex_init(&mdb->scan_mutex, NULL)) {
-		daemon_log(LOG_ERR, "Failed to initialize scan mutex!");
+		log_error("Failed to initialize scan mutex!");
 		free(mdb);
 		return NULL;
 	}
 
 	if (sqlite3_open(cfg_getstr(cfg, "database-file"), &mdb->db)) {
-		daemon_log(LOG_ERR, "Failed to open database!");
+		log_error("Failed to open database!");
 		music_db_shutdown(mdb);
 		return NULL;
 	}
 
-#if 0
-	sqlite3_trace(mdb->db, music_db_sqlite_trace, NULL);
+#ifdef _DEBUG
+	sqlite3_profile(mdb->db, _sqlite3_profile, NULL);
 #endif
 
 	if (sqlite3_exec(mdb->db, create_basileus_db_str, NULL, NULL, &errmsg)) {
-		daemon_log(LOG_ERR, "Failed to create database: %s!", errmsg);
+		log_error("Failed to create database: %s!", errmsg);
 		sqlite3_free(errmsg);
 		music_db_shutdown(mdb);
 		return NULL;
@@ -373,18 +371,18 @@ music_db_refresh(music_db_t mdb)
 	int ret = 0;
 
 	if ((ret = pthread_mutex_lock(&_mdb->scan_mutex))) {
-		daemon_log(LOG_ERR, "Failed to lock scan mutex: %d!", ret);
+		log_error("Failed to lock scan mutex: %d!", ret);
 		return 1;
 	}
 
 	if (_mdb->scan_in_progress) {
-		daemon_log(LOG_WARNING, "Music database scan already in progress.");
+		log_error("Music database scan already in progress.");
 		ret = 2;
 		goto cleanup;
 	}
 
 	if (pthread_create(&_mdb->scan_thread, NULL, &music_db_scan_thread, mdb)) {
-		daemon_log(LOG_ERR, "Failed to create scan thread!");
+		log_error("Failed to create scan thread!");
 		ret = 3;
 		goto cleanup;
 	}
@@ -394,7 +392,7 @@ music_db_refresh(music_db_t mdb)
 
 cleanup:
 	if ((ret = pthread_mutex_unlock(&_mdb->scan_mutex))) {
-		daemon_log(LOG_CRIT, "Failed to unlock scan mutex: %d!", ret);
+		log_error("Failed to unlock scan mutex: %d!", ret);
 		exit (1);
 	}
 
@@ -411,12 +409,12 @@ _get_artists_cb(void *d, int argc, char **argv, char **column_name)
 
 	artist = json_object_new_string(argv[0]);
 	if (artist == NULL) {
-		daemon_log(LOG_ERR, "Failed to allocate artist JSON string!");
+		log_error("Failed to allocate artist JSON string!");
 		return ENOMEM;
 	}
 
 	if (json_object_array_add(arr, artist)) {
-		daemon_log(LOG_ERR, "Failed to add artist to JSON array!");
+		log_error("Failed to add artist to JSON array!");
 		json_object_put(artist);
 		return ENOMEM;
 	}
@@ -433,12 +431,12 @@ music_db_get_artists(const music_db_t mdb)
 
 	arr = json_object_new_array();
 	if (arr == NULL) {
-		daemon_log(LOG_ERR, "Failed to allocate JSON artists array!");
+		log_error("Failed to allocate JSON artists array!");
 		return NULL;
 	}
 
 	if (sqlite3_exec(_mdb->db, "SELECT name from artists;", _get_artists_cb, arr, &errmsg)) {
-		daemon_log(LOG_ERR, "Failed to get artist names from database: %s", errmsg);
+		log_error("Failed to get artist names from database: %s", errmsg);
 		sqlite3_free(errmsg);
 		json_object_put(arr);
 		return NULL;
@@ -456,7 +454,7 @@ music_db_get_albums(const music_db_t mdb, const char *artist)
 
 	arr = json_object_new_array();
 	if (arr == NULL) {
-		daemon_log(LOG_ERR, "Failed to allocate json artists array!");
+		log_error("Failed to allocate json artists array!");
 		return NULL;
 	}
 
@@ -480,18 +478,18 @@ music_db_get_albums(const music_db_t mdb, const char *artist)
 			const char *txt = (const char *)sqlite3_column_text(stmt, 0);
 			album = json_object_new_string(txt);
 			if (album == NULL) {
-				daemon_log(LOG_ERR, "Failed to create albums JSON string!");
+				log_error("Failed to create albums JSON string!");
 				goto failure;
 			}
 			if (json_object_array_add(arr, album)) {
-				daemon_log(LOG_ERR, "Failed to add album to JSON array!");
+				log_error("Failed to add album to JSON array!");
 				json_object_put(album);
 				goto failure;
 			}
 			break;
 		}
 		default:
-			daemon_log(LOG_ERR, "Sqlite3 step failed: %s", sqlite3_errmsg(_mdb->db));
+			log_error("Sqlite3 step failed: %s", sqlite3_errmsg(_mdb->db));
 			goto failure;
 		}
 	}
@@ -521,7 +519,7 @@ music_db_get_songs(const music_db_t mdb, const char *artist, const char *album)
 
 	arr = json_object_new_array();
 	if (arr == NULL) {
-		daemon_log(LOG_ERR, "Failed to create JSON artists array!");
+		log_error("Failed to create JSON artists array!");
 		return NULL;
 	}
 
@@ -554,7 +552,7 @@ music_db_get_songs(const music_db_t mdb, const char *artist, const char *album)
 
 			song = json_object_new_array();
 			if (song == NULL) {
-				daemon_log(LOG_ERR, "Failed to create JSON song array!");
+				log_error("Failed to create JSON song array!");
 				goto failure;
 			}
 
@@ -575,14 +573,14 @@ music_db_get_songs(const music_db_t mdb, const char *artist, const char *album)
 			}
 
 			if (json_object_array_add(arr, song)) {
-				daemon_log(LOG_ERR, "Failed to add SONG to JSON array!");
+				log_error("Failed to add SONG to JSON array!");
 				goto failure;
 			}
 			song = NULL;
 			break;
 		}
 		default:
-			daemon_log(LOG_ERR, "Sqlite3 step failed: %s", sqlite3_errmsg(_mdb->db));
+			log_error("Sqlite3 step failed: %s", sqlite3_errmsg(_mdb->db));
 			goto failure;
 		}
 	}

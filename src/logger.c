@@ -27,7 +27,6 @@
  * SUCH DAMAGE.
  */
 
-#include <stdbool.h>
 #include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
@@ -35,7 +34,20 @@
 
 #include "logger.h"
 
-bool logger_use_color = true;
+/* Format headers used by logger */
+#define INFO_FORMAT      "\e[1;32m[INFO]\e[00m %s\n"
+#define INFO_FORMAT_NC   "[INFO] %s\n"
+#define WARN_FORMAT      "\e[1;33m[WARN]\e[00m %s\n"
+#define WARN_FORMAT_NC   "[WARN] %s\n"
+#define ERROR_FORMAT     "\e[1;31m[ERROR]\e[00m %s\n"
+#define ERROR_FORMAT_NC  "[ERROR] %s\n"
+#define DEBUG_FORMAT     "\e[1;36m[DEBUG]\e[00m %s\n"
+#define DEBUG_FORMAT_NC  "[DEBUG] %s\n"
+#define TRACE_FORMAT     "\e[1;36m[TRACE]\e[00m %s\n"
+#define TRACE_FORMAT_NC  "[TRACE] %s\n"
+
+int logger_use_color = 1;
+int logger_show_trace = 0;
 
 void
 log_message(MESSAGE_TYPE type, const char* fmt, ...)
@@ -44,6 +56,10 @@ log_message(MESSAGE_TYPE type, const char* fmt, ...)
 	char* msg_fmt = NULL;
 	const char* fmt_hdr = NULL;
 	int fmt_len = 0;
+
+	if (!logger_show_trace && type == TRACE) {
+		return;
+	}
 
 	switch (type) {
 	case INFO:
@@ -55,10 +71,12 @@ log_message(MESSAGE_TYPE type, const char* fmt, ...)
 	case ERROR:
 		fmt_hdr = logger_use_color ? ERROR_FORMAT : ERROR_FORMAT_NC;
 		break;
-#ifdef DEBUG
+#ifdef _DEBUG
 	case DBG:
-	case DBG2:
 		fmt_hdr = logger_use_color ? DEBUG_FORMAT : DEBUG_FORMAT_NC;
+		break;
+	case TRACE:
+		fmt_hdr = logger_use_color ? TRACE_FORMAT : TRACE_FORMAT_NC;
 		break;
 #endif /* DEBUG */
 	default:

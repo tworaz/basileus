@@ -30,15 +30,14 @@
 #include <errno.h>
 #include <string.h>
 
-#include <libdaemon/dlog.h>
-
 #include "configuration.h"
+#include "logger.h"
 #include "config.h"
 
 static void
-cfg_to_libdaemon_errfunc(cfg_t *cfg, const char *fmt, va_list ap)
+_errfunc(cfg_t *cfg, const char *fmt, va_list ap)
 {
-	daemon_logv(LOG_ERR, fmt, ap);
+	log_message(ERROR, fmt, ap);
 }
 
 cfg_t *
@@ -53,26 +52,26 @@ configuration_init(const char* cfg_path)
 		CFG_END()
 	};
 
-	daemon_log(LOG_INFO, "Reading configuration from: %s", cfg_path);
+	log_info("Reading configuration from: %s", cfg_path);
 
 	cfg_t *cfg = cfg_init(opts, CFGF_NONE);
 	if (!cfg) {
 		return NULL;
 	}
 
-	(void)cfg_set_error_function(cfg, &cfg_to_libdaemon_errfunc);
+	(void)cfg_set_error_function(cfg, &_errfunc);
 
 	switch (cfg_parse(cfg, cfg_path)) {
 	case CFG_SUCCESS:
 		break;
 	case CFG_FILE_ERROR:
-		daemon_log(LOG_ERR, "Configuration file could not be read: %s", strerror(errno));
+		log_error("Configuration file could not be read: %s", strerror(errno));
 		return NULL;
 	case CFG_PARSE_ERROR:
-		daemon_log(LOG_ERR, "Configuration file could not be parsed!");
+		log_error("Configuration file could not be parsed!");
 		return NULL;
 	default:
-		daemon_log(LOG_ERR, "Unknown configuration file parsing status!\n");
+		log_error("Unknown configuration file parsing status!\n");
 		return NULL;
 	}
 

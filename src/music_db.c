@@ -79,7 +79,7 @@ music_db_add_file(_music_db_t *mdb, const char *path)
 	int ret = 0;
 
 	if ((file = taglib_file_new(path)) == NULL || !taglib_file_is_valid(file)) {
-		log_warning("Skipping unrecoginzed file type: %s", path);
+		log_debug("Skipping unrecoginzed file type: %s", path);
 		return 0;
 	}
 
@@ -92,6 +92,8 @@ music_db_add_file(_music_db_t *mdb, const char *path)
 		log_warning("Could not read %s audio properties, skipping ...", path);
 		goto finish;
 	}
+
+	log_trace("Adding file to database: %s", path);
 
 	char *artist = taglib_tag_artist(tag);
 	char *title = taglib_tag_title(tag);
@@ -182,7 +184,7 @@ music_db_scan_directory(_music_db_t *mdb, const char *dir)
 		return 1;
 	}
 
-	log_info("Scanning directory: %s", dir);
+	log_trace("Scanning directory: %s", dir);
 
 	while (0 == readdir_r(dirp, dirent_buf, &entry) && entry != NULL) {
 		if ((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0)) {

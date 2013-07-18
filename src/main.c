@@ -46,6 +46,7 @@ print_help(const char *progname)
 	printf("Usage: %s [options]\n"
 	       "  Available options:\n"
 	       "  -c <file>   Read program configuration from specified file\n"
+	       "  -n          Disable colors in log output\n"
 	       "  -h          Show application help\n"
 #ifdef _DEBUG
 	       "  -t          Enable trace logs\n"
@@ -61,9 +62,9 @@ int main(int argc, char **argv)
 	int opt;
 
 #ifndef _DEBUG
-#define _GETOPT_OPTSTR "c:hv"
+#define _GETOPT_OPTSTR "c:nhv"
 #else
-#define _GETOPT_OPTSTR "c:htv"
+#define _GETOPT_OPTSTR "c:nhtv"
 #endif
 
 	while ((opt = getopt(argc, argv, _GETOPT_OPTSTR)) != -1) {
@@ -75,14 +76,21 @@ int main(int argc, char **argv)
 				return 1;
 			}
 			break;
+
+		case 'n':
+			logger_use_color = 0;
+			break;
+
 		case 'v':
 			print_version();
 			return 0;
+
 #ifdef _DEBUG
 		case 't':
 			logger_show_trace = 1;
 			break;
 #endif
+
 		case 'h':
 		default:
 			print_help(argv[0]);
@@ -95,9 +103,11 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	basileus_run(bhnd);
+	(void)basileus_run(bhnd);
 
+	log_info("Terminating basileus...");
 	basileus_shutdown(bhnd);
+	log_info("Shutdown complete");
 
 	return 0;
 }

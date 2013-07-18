@@ -359,10 +359,12 @@ div#progress-time
 .media-browser-item-text
 {
 	position: absolute;
-	top: 0.2em;
+	top: 2px;
+	bottom: 2px;
+	font-size: 16px;
+	line-height: 20px;
 	left: 5px;
 	right: 5px;
-	height: 1.2em;
 	float: left;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -392,31 +394,31 @@ div#progress-time
 	top: 8px;
 	left: 8px;
 	right: 8px;
-	font-size: 20px;
-	padding: 0px;
+	line-height: 26px;
+	padding-top: 7px;
+	padding-bottom: 7px;
 }
 
 .playlist-header div
 {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 	float: left;
 }
 
-.playlist-header-text-wrapper
+.playlist-text-wrapper
 {
 	position: absolute;
-	top: 8px;
 	left: 0px;
-	right: 44px;
+	right: 30px;
 }
 
-.playlist-header-button-wrapper
+.playlist-button-wrapper
 {
-	text-align: right;
 	position: absolute;
-	top: 0px;
-	bottom: 0px;
-	right: 8px;
-	width: 40px;
+	right: 0px;
+	width: 30px;
 }
 
 #playlist-items
@@ -430,22 +432,14 @@ div#progress-time
 	text-align: center;
 }
 
-div.playlist-item-text-wrapper
+div.playlist-row
 {
-	position: absolute;
-	top: 0.2em;
-	left: 0px;
-	right: 44px;
-}
-
-div.playlist-item-button-wrapper
-{
-	position: absolute;
-	top: 2px;
-	bottom: 0px;
-	right: 4px;
-	width: 44px;
-	text-align: right;
+	box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	margin-left: 0px;
+	margin-right: 0px;
 }
 
 div.playlist-row div
@@ -456,12 +450,13 @@ div.playlist-row div
 	white-space: nowrap;
 	box-sizing: border-box;
 	-moz-box-sizing: border-box;
+	line-height: 20px;
 }
 
 #playlist-items div.playlist-row
 {
 	position: relative;
-	height: 1.5em;
+	height: 24px;
 	overflow-y: auto;
 }
 
@@ -523,19 +518,13 @@ div.playlist-row div
 
 i.remove-song
 {
-	position: absolute;
-	right: 0px;
-	top: -2px;
-	float: right;
-	font-size: 1.4em;
-	padding-right: 5px;
+	line-height: 20px;
+	font-size: 19px;
 }
 
 i.clear-playlist
 {
-	font-size: 1.4em;
-	position: relative;
-	top: 0.18em;
+	line-height: 26px;
 }
 
 /*====================== Footer ==================== */

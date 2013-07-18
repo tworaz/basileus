@@ -37,10 +37,12 @@ BasileusUI.prototype.OnLoad = function()
 	_player = document.getElementById("audio-player");
 
 	_player.addEventListener('ended', function(evt) {
+		console.log("Media event received: ended");
 		_thiz.UpdateProgressBar();
 		_thiz.Next(true);
 	});
 	_player.addEventListener('play', function(evt) {
+		console.log("Media event received: play");
 		_thiz.UpdatePlayPauseButton();
 		_thiz.UpdateNowPlaying();
 		_thiz.UpdateProgressBar();
@@ -52,34 +54,43 @@ BasileusUI.prototype.OnLoad = function()
 		}, PROGRESS_BAR_UPDATE_INTERVAL);
 	});
 	_player.addEventListener('pause', function(evt) {
+		console.log("Media event received: pause");
 		_thiz.UpdatePlayPauseButton();
 		window.clearInterval(_progress_bar_timer);
 		_progress_bar_timer = undefined;
 	});
-	_player.addEventListener('ended', function(evt) {
-		console.log("playback ended");
-	});
 	_player.addEventListener('emtied', function(evt) {
-		console.log("emptied");
+		console.log("Media event received: emptied");
 	});
 	_player.addEventListener('progress', function(evt) {
+		console.log("Media event received: progress");
 		_thiz.UpdateBufferedBar();
 	});
 	_player.addEventListener('loadeddata', function(evt) {
+		console.log("Media event received: loadeddata");
 		_thiz.UpdateBufferedBar();
 	});
 	_player.addEventListener('durationchange', function(evt) {
+		console.log("Media event received: durationchange");
 		_thiz.UpdateProgressBar();
 	});
 	_player.addEventListener('abort', function(evt) {
-		console.error('media abort');
-		window.clearInterval(_progress_bar_timer);
-		_player.pause();
+		console.log("Media event received: abort");
+		if (_progress_bar_timer) {
+			window.clearInterval(_progress_bar_timer);
+			_progress_bar_timer = undefined;
+		}
+		if (evt.target.error) {
+			_thiz.HandleMediaError(evt.target.error);
+		}
 	});
 	_player.addEventListener('error', function(evt) {
-		console.error('media error: ' + evt.target.error.code);
-		window.clearInterval(_progress_bar_timer);
-		_player.pause();
+		console.log("Media event received: error");
+		if (_progress_bar_timer) {
+			window.clearInterval(_progress_bar_timer);
+			_progress_bar_timer = undefined;
+		}
+		_thiz.HandleMediaError(evt.target.error);
 	});
 
 	var bar = document.getElementById('progress-bar-outline');
@@ -289,14 +300,14 @@ BasileusUI.prototype.AddSongsToPlaylist = function(artist, album, songs)
 		} else {
 			row.className = "playlist-row rounded-box even-item"
 		}
-		txt_wrapper.className = "playlist-item-text-wrapper";
-		track_cell.className =  "playlist-track-col";
+		txt_wrapper.className = "playlist-text-wrapper";
+		track_cell.className = "playlist-track-col";
 		title_cell.className = "playlist-title-col padded-text-box";
 		album_cell.className = "playlist-album-col padded-text-box";
 		artist_cell.className = "playlist-artist-col padded-text-box";
 		length_cell.className = "playlist-length-col";
 
-		button_wrapper.className = "playlist-item-button-wrapper";
+		button_wrapper.className = "playlist-button-wrapper";
 		del_song.className = "button remove-song icon-remove"
 
 		track_cell.textContent = track;
@@ -447,7 +458,9 @@ BasileusUI.prototype.UpdateProgressBar = function()
 	var pad = bar.getBoundingClientRect().left - bar.parentNode.getBoundingClientRect().left;
 	var barMaxWidth = bar.parentNode.offsetWidth - (2 * pad);
 	var pw = Math.floor(barMaxWidth * _player.currentTime / _player.duration);
-	if (pw > barMaxWidth) {
+	if (isNaN(pw)) {
+			pw = 0;
+	} else if (pw > barMaxWidth) {
 		pw = barMaxWidth;
 	}
 	bar.style.width = pw + "px";
@@ -593,6 +606,29 @@ BasileusUI.prototype.SeekTo = function(posX)
 		_player.currentTime = position * _player.duration;
 		this.UpdateProgressBar();
 	}
+}
+
+BasileusUI.prototype.HandleMediaError = function(error)
+{
+	console.log("In HandleMediaError " + error);
+	switch (error.code) {
+	case error.MEDIA_ERR_ABORTED:
+		console.error('MEDIA_ERR_ABORTED');
+		break;
+	case error.MEDIA_ERR_NETWORK:
+		console.error('MEDIA_ERR_NETWORK');
+		break;
+	case error.MEDIA_ERR_DECODE:
+		console.error('MEDIA_ERR_DECODE');
+		break;
+	case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+		console.error('MEDIA_ERR_SRC_NOT_SUPPORTED');
+		break;
+	 default:
+		console.error('An unknown error occurred.');
+		break;
+	}
+	_player.pause();
 }
 
 function seconds_to_string(sec)

@@ -426,7 +426,7 @@ music_db_scan_thread(void *data)
 	pthread_exit(0);
 }
 
-#ifdef _DEBUG
+#ifdef SQLITE3_PROFILE
 static void
 _sqlite3_profile(void *d, const char *txt, sqlite3_uint64 time)
 {
@@ -481,7 +481,7 @@ music_db_init(cfg_t *cfg)
 		return NULL;
 	}
 
-#ifdef _DEBUG
+#ifdef SQLITE3_PROFILE
 	sqlite3_profile(mdb->db, _sqlite3_profile, NULL);
 #endif
 

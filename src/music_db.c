@@ -39,29 +39,20 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <tag_c.h>
 #include <sqlite3.h>
 
 #include "logger.h"
 #include "music_db.h"
+#include "music_tag.h"
 #include "mongoose.h"
 #include "configuration.h"
 #include "basileus-music-db.h"
 
-#define PREP(db, stmt, str) \
-	if (SQLITE_OK != sqlite3_prepare_v2((db), (str), -1, (stmt), NULL)) break;
-#define BIND_TXT(stmt, pos, txt) \
-	if (SQLITE_OK != sqlite3_bind_text((stmt), (pos), (txt), -1, 0)) break;
-#define BIND_INT(stmt, pos, val) \
-	if (SQLITE_OK != sqlite3_bind_int((stmt), (pos), (val))) break;
-#define STEP(stmt) \
-	if (SQLITE_DONE != sqlite3_step((stmt))) break;
-#define FINALIZE(stmt) \
-	if (SQLITE_OK != sqlite3_finalize((stmt))) break; else (stmt) = NULL;
-
 typedef struct {
 	sqlite3	        *db;
 	cfg_t	        *cfg;
+	sqlite3_mutex	*db_mutex;
+
 	pthread_mutex_t	 scan_mutex;
 	pthread_t        scan_thread;
 	int              scan_in_progress : 1;
@@ -69,83 +60,243 @@ typedef struct {
 } _music_db_t;
 
 static int
+_music_db_add_artist(_music_db_t *mdb, const char *artist, sqlite3_int64 *out_id)
+{
+	sqlite3_stmt *stmt = NULL;
+	int ret = -1;
+
+	sqlite3_mutex_enter(mdb->db_mutex);
+
+	const char stmt_txt[] = "INSERT INTO artists (name) VALUES (?);";
+	if (SQLITE_OK != sqlite3_prepare_v2(mdb->db, stmt_txt, -1, &stmt, NULL)) {
+		log_error("Failed to prepare sqlite3 statement: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_bind_text(stmt, 1, artist, -1, 0)) {
+		log_error("Failed to bind statement text: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_DONE != sqlite3_step(stmt)) {
+		log_error("Failed to step sqlite3 statement: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_finalize(stmt)) {
+		log_error("Failed to finalize sqlite3 statement: %s", sqlite3_errmsg(mdb->db));
+		stmt = NULL;
+		goto finish;
+	}
+	stmt = NULL;
+
+	const char stmt_txt2[] = "SELECT id from artists WHERE name=?;";
+	if (SQLITE_OK != sqlite3_prepare_v2(mdb->db, stmt_txt2, -1, &stmt, NULL)) {
+		log_error("Failed to prepare sqlite3 statement: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_bind_text(stmt, 1, artist, -1, 0)) {
+		log_error("Failed to bind statement text: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_ROW != sqlite3_step(stmt)) {
+		log_error("Failed to step sqlite3 statement: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (sqlite3_column_count(stmt) != 1 || sqlite3_column_type(stmt, 0) != SQLITE_INTEGER) {
+		log_error("Failed to get newly added artist id!");
+		goto finish;
+	}
+	*out_id = sqlite3_column_int(stmt, 0);
+	if (SQLITE_DONE != sqlite3_step(stmt)) {
+		log_error("Failed to step sqlite3 statement: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_finalize(stmt)) {
+		log_error("Failed to finalize sqlite3 statement: %s", sqlite3_errmsg(mdb->db));
+		stmt = NULL;
+		goto finish;
+	}
+
+	stmt = NULL;
+	ret = 0;
+
+finish:
+	sqlite3_finalize(stmt);
+	sqlite3_mutex_leave(mdb->db_mutex);
+
+	return ret;
+}
+
+static int
+_music_db_add_album(_music_db_t *mdb, const char *album, sqlite3_int64 artist_id, sqlite3_int64 *out_id)
+{
+	sqlite3_stmt *stmt = NULL;
+	int ret = -1;
+
+	sqlite3_mutex_enter(mdb->db_mutex);
+
+	const char stmt_txt[] = "INSERT INTO albums (name, artist_id) VALUES (?, ?);";
+	if (SQLITE_OK != sqlite3_prepare_v2(mdb->db, stmt_txt, -1, &stmt, NULL)) {
+		log_error("Failed to prepare sqlite3 statement: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_bind_text(stmt, 1, album, -1, 0)) {
+		log_error("Failed to bind statement text: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_bind_int(stmt, 2, artist_id)) {
+		log_error("Failed to bind statement integer: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_DONE != sqlite3_step(stmt)) {
+		log_error("Failed to step sqlite3 statement: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_finalize(stmt)) {
+		log_error("Failed to finalize sqlite3 statement: %s", sqlite3_errmsg(mdb->db));
+		stmt = NULL;
+		goto finish;
+	}
+	stmt = NULL;
+
+	const char stmt_txt2[] = "SELECT id from albums WHERE name=? AND artist_id=?;";
+	if (SQLITE_OK != sqlite3_prepare_v2(mdb->db, stmt_txt2, -1, &stmt, NULL)) {
+		log_error("Failed to prepare sqlite3 statement: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_bind_text(stmt, 1, album, -1, 0)) {
+		log_error("Failed to bind statement text: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_bind_int(stmt, 2, artist_id)) {
+		log_error("Failed to bind statement integer: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_ROW != sqlite3_step(stmt)) {
+		log_error("Failed to step sqlite3 statement: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (sqlite3_column_count(stmt) != 1 || sqlite3_column_type(stmt, 0) != SQLITE_INTEGER) {
+		log_error("Failed to get newly added artist id!");
+		goto finish;
+	}
+	*out_id = sqlite3_column_int(stmt, 0);
+	if (SQLITE_DONE != sqlite3_step(stmt)) {
+		log_error("Failed to step sqlite3 statement: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_finalize(stmt)) {
+		log_error("Failed to finalize sqlite3 statement: %s", sqlite3_errmsg(mdb->db));
+		stmt = NULL;
+		goto finish;
+	}
+	stmt = NULL;
+
+	ret = 0;
+
+finish:
+	sqlite3_finalize(stmt);
+	sqlite3_mutex_leave(mdb->db_mutex);
+
+	return ret;
+}
+
+static int
+_music_db_add_song(_music_db_t *mdb, const char *path, music_tag_t *tag, sqlite3_int64 artist_id, sqlite3_int64 album_id)
+{
+	sqlite3_stmt *stmt = NULL;
+	char hash[33];
+	int ret = -1;
+
+	memset(hash, 0, sizeof(hash));
+	mg_md5(hash, path, NULL);
+
+	sqlite3_mutex_enter(mdb->db_mutex);
+
+	const char stmt_txt[] = "INSERT INTO songs (title, path, hash, track, length, artist_id, album_id) "
+	                        "VALUES (:1, :2, :3, :4, :5, :6, :7);";
+	if (SQLITE_OK != sqlite3_prepare_v2(mdb->db, stmt_txt, -1, &stmt, NULL)) {
+		log_error("Failed to prepare sqlite3 statement: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_bind_text(stmt, 1, tag->title, -1, 0)) {
+		log_error("Failed to bind statement text: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_bind_text(stmt, 2, path, -1, 0)) {
+		log_error("Failed to bind statement text: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_bind_text(stmt, 3, hash, -1, 0)) {
+		log_error("Failed to bind statement text: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_bind_int(stmt, 4, tag->track)) {
+		log_error("Failed to bind statement integer: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_bind_int(stmt, 5, tag->length)) {
+		log_error("Failed to bind statement integer: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_bind_int(stmt, 6, artist_id)) {
+		log_error("Failed to bind statement integer: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_bind_int(stmt, 7, album_id)) {
+		log_error("Failed to bind statement integer: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_DONE != sqlite3_step(stmt)) {
+		log_error("Failed to step sqlite3 statement: %s", sqlite3_errmsg(mdb->db));
+		goto finish;
+	}
+	if (SQLITE_OK != sqlite3_finalize(stmt)) {
+		log_error("Failed to finalize sqlite3 statement: %s", sqlite3_errmsg(mdb->db));
+		stmt = NULL;
+		goto finish;
+	}
+
+	stmt = NULL;
+	ret = 0;
+
+finish:
+	sqlite3_finalize(stmt);
+	sqlite3_mutex_leave(mdb->db_mutex);
+
+	return ret;
+}
+
+static int
 music_db_add_file(_music_db_t *mdb, const char *path)
 {
-	const TagLib_AudioProperties *props = NULL;
-	sqlite3_stmt *stmt = NULL;
-	TagLib_File *file = NULL;
-	TagLib_Tag *tag = NULL;
-	char hash[33];
-	int ret = 0;
+	sqlite3_int64 artist_id, album_id;
+	music_tag_t *tag = NULL;
+	int ret = -1;
 
-	if ((file = taglib_file_new(path)) == NULL || !taglib_file_is_valid(file)) {
-		log_debug("Skipping unrecoginzed file type: %s", path);
+	tag = music_tag_create(path);
+	if (tag == NULL) {
+		log_debug("Failed to read tags from file: %s", path);
 		return 0;
-	}
-
-	if ((tag = taglib_file_tag(file)) == NULL) {
-		log_warning("Could not read %s tags, skipping ...", path);
-		goto finish;
-	}
-
-	if ((props = taglib_file_audioproperties(file)) == NULL) {
-		log_warning("Could not read %s audio properties, skipping ...", path);
-		goto finish;
 	}
 
 	log_trace("Adding file to database: %s", path);
 
-	char *artist = taglib_tag_artist(tag);
-	char *title = taglib_tag_title(tag);
-	char *album = taglib_tag_album(tag);
-	int track = taglib_tag_track(tag);
-	int length = taglib_audioproperties_length(props);
-
-	mg_md5(hash, path, NULL);
-
-	int done = 0;
-	do {
-		PREP(mdb->db, &stmt, "INSERT INTO artists (name) VALUES (?);");
-		BIND_TXT(stmt, 1, artist);
-		STEP(stmt);
-		FINALIZE(stmt);
-
-		PREP(mdb->db, &stmt, "INSERT INTO albums (name, artist_id) VALUES (?,"
-			"(SELECT id FROM artists WHERE name=?));");
-		BIND_TXT(stmt, 1, album);
-		BIND_TXT(stmt, 2, artist);
-		STEP(stmt);
-		FINALIZE(stmt);
-
-		PREP(mdb->db, &stmt, "INSERT INTO songs (title, path, hash, track, length, artist_id, album_id)"
-			"VALUES (:1, :2, :3, :4, :5,"
-			"(SELECT id FROM artists WHERE name=:6),"
-			"(SELECT id FROM albums WHERE artist_id=(SELECT id FROM artists WHERE name=:6) AND name=:7));");
-		BIND_TXT(stmt, 1, title);
-		BIND_TXT(stmt, 2, path);
-		BIND_TXT(stmt, 3, hash);
-		BIND_INT(stmt, 4, track);
-		BIND_INT(stmt, 5, length);
-		BIND_TXT(stmt, 6, artist);
-		BIND_TXT(stmt, 7, album);
-		STEP(stmt);
-		FINALIZE(stmt);
-
-		done = 1;
-	} while (0);
-
-	if (!done) {
-		log_error("Adding %s to music database failed: %s", path, sqlite3_errmsg(mdb->db));
-		ret = 1;
+	if (0 != _music_db_add_artist(mdb, tag->artist, &artist_id)) {
+		log_error("Failed to add artist \"%s\" to music database!", tag->artist);
+		goto finish;
 	}
+	if (0 != _music_db_add_album(mdb, tag->album, artist_id, &album_id)) {
+		log_error("Failed to add album \"%s\" to music database!", tag->album);
+		goto finish;
+	}
+	if (0 != _music_db_add_song(mdb, path, tag, artist_id, album_id)) {
+		log_error("Failed to add song \"%s\" to music database!", tag->title);
+		goto finish;
+	}
+
+	ret = 0;
 
 finish:
-	if (stmt) {
-		sqlite3_finalize(stmt);
-	}
-	taglib_tag_free_strings();
-	taglib_file_free(file);
-
+	music_tag_destroy(tag);
 	return ret;
 }
 
@@ -318,6 +469,12 @@ music_db_init(cfg_t *cfg)
 		return NULL;
 	}
 
+	if (NULL == (mdb->db_mutex = sqlite3_mutex_alloc(SQLITE_MUTEX_RECURSIVE))) {
+		log_error("Failed to allocate sqlite3 mutex!");
+		music_db_shutdown(mdb);
+		return NULL;
+	}
+
 	if (sqlite3_open(cfg_getstr(cfg, "database-file"), &mdb->db)) {
 		log_error("Failed to open database!");
 		music_db_shutdown(mdb);
@@ -357,6 +514,10 @@ music_db_shutdown(music_db_t mdb)
 	if (_mdb->db) {
 		sqlite3_close(_mdb->db);
 		_mdb->db = NULL;
+	}
+
+	if (_mdb->db_mutex) {
+		sqlite3_mutex_free(_mdb->db_mutex);
 	}
 
 	(void)pthread_mutex_destroy(&_mdb->scan_mutex);
@@ -431,19 +592,24 @@ music_db_get_artists(const music_db_t mdb)
 	struct json_object *arr;
 	char *errmsg;
 
+	sqlite3_mutex_enter(_mdb->db_mutex);
+
 	arr = json_object_new_array();
 	if (arr == NULL) {
 		log_error("Failed to allocate JSON artists array!");
-		return NULL;
+		goto finish;
 	}
 
 	if (sqlite3_exec(_mdb->db, "SELECT name from artists;", _get_artists_cb, arr, &errmsg)) {
 		log_error("Failed to get artist names from database: %s", errmsg);
 		sqlite3_free(errmsg);
 		json_object_put(arr);
-		return NULL;
+		arr = NULL;
+		goto finish;
 	}
 
+finish:
+	sqlite3_mutex_leave(_mdb->db_mutex);
 	return arr;
 }
 
@@ -460,9 +626,11 @@ music_db_get_albums(const music_db_t mdb, const char *artist)
 		return NULL;
 	}
 
+	sqlite3_mutex_enter(_mdb->db_mutex);
+
 	sqlite3_stmt *stmt = NULL;
 	const char stmt_txt[] = "SELECT name FROM albums WHERE artist_id="
-		"(SELECT id FROM artists WHERE name=?);";
+	                        "(SELECT id FROM artists WHERE name=?);";
 	if (SQLITE_OK != sqlite3_prepare_v2(_mdb->db, stmt_txt, -1, &stmt, NULL)) {
 		goto failure;
 	}
@@ -496,17 +664,21 @@ music_db_get_albums(const music_db_t mdb, const char *artist)
 		}
 	}
 done:
+	if (SQLITE_OK != sqlite3_finalize(stmt)) {
+		log_error("Failed to finalize sqlite3 statement: %s", sqlite3_errmsg(_mdb->db));
+		stmt = NULL;
+		goto failure;
+	}
 
-	sqlite3_finalize(stmt);
-
+	sqlite3_mutex_leave(_mdb->db_mutex);
 	return arr;
+
 failure:
 	if (arr) {
 		json_object_put(arr);
 	}
-	if (stmt) {
-		sqlite3_finalize(stmt);
-	}
+	sqlite3_finalize(stmt);
+	sqlite3_mutex_leave(_mdb->db_mutex);
 
 	return NULL;
 }
@@ -524,6 +696,8 @@ music_db_get_songs(const music_db_t mdb, const char *artist, const char *album)
 		log_error("Failed to create JSON artists array!");
 		return NULL;
 	}
+
+	sqlite3_mutex_enter(_mdb->db_mutex);
 
 	sqlite3_stmt *stmt = NULL;
 	const char stmt_txt[] =
@@ -587,8 +761,13 @@ music_db_get_songs(const music_db_t mdb, const char *artist, const char *album)
 		}
 	}
 done:
-	sqlite3_finalize(stmt);
+	if (SQLITE_OK != sqlite3_finalize(stmt)) {
+		log_error("Failed to finalize sqlite3 statement: %s", sqlite3_errmsg(_mdb->db));
+		stmt = NULL;
+		goto failure;
+	}
 
+	sqlite3_mutex_leave(_mdb->db_mutex);
 	return arr;
 
 failure:
@@ -598,9 +777,8 @@ failure:
 	if (song) {
 		json_object_put(song);
 	}
-	if (stmt) {
-		sqlite3_finalize(stmt);
-	}
+	sqlite3_finalize(stmt);
+	sqlite3_mutex_leave(_mdb->db_mutex);
 
 	return NULL;
 }
@@ -610,8 +788,11 @@ char *
 music_db_get_song_path(const music_db_t mdb, const char *hash)
 {
 	_music_db_t *_mdb = mdb;
-
 	sqlite3_stmt *stmt = NULL;
+	char *path = NULL;
+
+	sqlite3_mutex_enter(_mdb->db_mutex);
+
 	const char stmt_txt[] = "SELECT path FROM songs WHERE hash=?";
 	if (SQLITE_OK != sqlite3_prepare_v2(_mdb->db, stmt_txt, -1, &stmt, NULL)) {
 		goto failure;
@@ -625,21 +806,17 @@ music_db_get_song_path(const music_db_t mdb, const char *hash)
 
 	assert(sqlite3_column_type(stmt, 0) == SQLITE_TEXT);
 
-	char *path = strdup((const char *)sqlite3_column_text(stmt, 0));
-	if (path == NULL) {
-		goto failure;
-	}
+	path = strdup((const char *)sqlite3_column_text(stmt, 0));
 
 	assert(sqlite3_step(stmt) == SQLITE_DONE);
 
-	sqlite3_finalize(stmt);
+failure:
+	if (SQLITE_OK != sqlite3_finalize(stmt)) {
+		log_error("Failed to finalize sqlite3 statement: %s", sqlite3_errmsg(_mdb->db));
+		stmt = NULL;
+		goto failure;
+	}
+	sqlite3_mutex_leave(_mdb->db_mutex);
 
 	return path;
-
-failure:
-	if (stmt) {
-		sqlite3_finalize(stmt);
-	}
-
-	return NULL;
 }

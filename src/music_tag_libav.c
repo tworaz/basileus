@@ -83,7 +83,6 @@ music_tag_create(const char *file)
 	for (i = 0; i < container->nb_streams; i++) {
 		if (container->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) {
 			audio_streams++;
-			break;
 		}
 	}
 
@@ -135,6 +134,9 @@ music_tag_create(const char *file)
 failure:
 	if (container) {
 		avformat_close_input(&container);
+	}
+	if (ret) {
+		free(ret);
 	}
 	return NULL;
 }

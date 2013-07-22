@@ -189,7 +189,10 @@ _handle_stream(struct mg_connection *conn, music_db_t *mdb, const char *query)
 
 	mg_send_file(conn, path);
 
+	free(path);
+
 	return 1;
+
 failure:
 	if (path) {
 		free(path);

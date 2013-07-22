@@ -188,7 +188,7 @@ basileus_run(basileus_t basileus)
 
 	while (1) {
 		size = recv(app->sockfds[_SOCK_READ], &action, sizeof(action), MSG_WAITALL);
-		if (unlikely(size == -1)) {
+		if (size == -1) {
 			if (errno == EINTR) {
 				continue;
 			}

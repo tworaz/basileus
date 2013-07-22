@@ -33,11 +33,14 @@
 #define BASILEUS_VERSION_MAJOR @basileus_VERSION_MAJOR@
 #define BASILEUS_VERSION_MINOR @basileus_VERSION_MINOR@
 
-#define DEFAULT_CONFIG_FILE_PATH "/etc/basileus.conf"
-#define DEFAULT_DB_PATH "/var/db/basileus/basileusdb.sqlite3"
-#define DEFAULT_DOCUMENT_ROOT "/usr/share/basileus/www"
+#define DEFAULT_CONFIG_FILE_PATH "@SYSCONFDIR@/basileus.conf"
+#define DEFAULT_DB_PATH "@DBDIR@/basileus.sqlite3"
+#define DEFAULT_DOCUMENT_ROOT "@WWWDIR@"
 
 #define DEFAULT_LISTENING_PORTS "127.0.0.1:8085"
 #define DEFAULT_MONGOOSE_THREADS "4"
+
+#define CMAKE_BINARY_DIR "@CMAKE_BINARY_DIR@"
+#define CMAKE_SOURCE_DIR "@CMAKE_SOURCE_DIR@"
 
 #endif /* !CONFIG_H */

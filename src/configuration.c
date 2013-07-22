@@ -46,7 +46,7 @@ configuration_init(const char* cfg_path)
 	cfg_opt_t opts[] = {
 		CFG_STR("listening-ports", DEFAULT_LISTENING_PORTS, CFGF_NONE),
 		CFG_STR("document-root", DEFAULT_DOCUMENT_ROOT, CFGF_NONE),
-		CFG_STR("database-file", DEFAULT_DB_PATH, CFGF_NONE),
+		CFG_STR("database-path", DEFAULT_DB_PATH, CFGF_NONE),
 		CFG_STR("mongoose-threads", DEFAULT_MONGOOSE_THREADS, CFGF_NONE),
 		CFG_STR_LIST("music-dirs", 0, CFGF_NODEFAULT),
 		CFG_END()

@@ -94,13 +94,14 @@ _handle_get_albums(struct mg_connection *conn, music_db_t *mdb, const char *quer
 {
 	char decode_buf[MAX_QUERY_LENGTH];
 	const char *err_str = ERR_GENERIC;
+	struct json_object *albums = NULL;
 
 	if (mg_get_var(query, strlen(query), "artist", decode_buf, sizeof(decode_buf)) <= 0) {
 		err_str = ERR_QUERY_TOO_LONG;
 		goto failure;
 	}
 
-	struct json_object *albums = music_db_get_albums(mdb, decode_buf);
+	albums = music_db_get_albums(mdb, decode_buf);
 	if (albums == NULL) {
 		goto failure;
 	}
@@ -132,6 +133,7 @@ _handle_get_songs(struct mg_connection *conn, music_db_t *mdb, const char *query
 {
 	char artist_buf[MAX_QUERY_LENGTH];
 	char album_buf[MAX_QUERY_LENGTH];
+	struct json_object *songs = NULL;
 	const char *err_str = ERR_GENERIC;
 
 	if (mg_get_var(query, strlen(query), "artist", artist_buf, sizeof(artist_buf)) <= 0) {
@@ -143,7 +145,7 @@ _handle_get_songs(struct mg_connection *conn, music_db_t *mdb, const char *query
 		goto failure;
 	}
 
-	struct json_object *songs = music_db_get_songs(mdb, artist_buf, album_buf);
+	songs = music_db_get_songs(mdb, artist_buf, album_buf);
 	if (songs == NULL) {
 		goto failure;
 	}
@@ -161,6 +163,7 @@ _handle_get_songs(struct mg_connection *conn, music_db_t *mdb, const char *query
 	json_object_put(songs);
 
 	return 1;
+
 failure:
 	if (songs) {
 		json_object_put(songs);

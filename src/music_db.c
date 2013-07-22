@@ -405,6 +405,7 @@ music_db_scan_thread(void *data)
         for (i = 0; i < cfg_size(mdb->cfg, "music-dirs"); i++)
 	{
 		const char *dir = cfg_getnstr(mdb->cfg, "music-dirs", i);
+		log_info("Scanning music directory: %s", dir);
 		ret = music_db_scan_directory(mdb, dir);
 		if (ret == EINTR) {
 			break;
@@ -475,11 +476,20 @@ music_db_init(cfg_t *cfg)
 		return NULL;
 	}
 
-	if (sqlite3_open(cfg_getstr(cfg, "database-file"), &mdb->db)) {
+	if (sqlite3_open(cfg_getstr(cfg, "database-path"), &mdb->db)) {
+#ifdef _DEBUG
+		if (SQLITE_OK == sqlite3_open("basileus-dev.sqlite3", &mdb->db)) {
+			goto devdb;
+		}
+#endif
 		log_error("Failed to open database!");
 		music_db_shutdown(mdb);
 		return NULL;
 	}
+
+#ifdef _DEBUG
+devdb:
+#endif
 
 #ifdef SQLITE3_PROFILE
 	sqlite3_profile(mdb->db, _sqlite3_profile, NULL);

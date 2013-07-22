@@ -57,9 +57,11 @@ log_message(MESSAGE_TYPE type, const char* fmt, ...)
 	const char* fmt_hdr = NULL;
 	int fmt_len = 0;
 
+#ifdef _DEBUG
 	if (!logger_show_trace && type == TRACE) {
 		return;
 	}
+#endif
 
 	switch (type) {
 	case INFO:

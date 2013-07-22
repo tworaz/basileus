@@ -1,9 +1,37 @@
 # Configuration file for basileus music player
 
-#listening-ports = "localhost:8081"
+#
+# Local address specification on which basileus built-in web
+# server should listen on. In case where only port number is
+# specified basileus will listen on all avaliable interfaces.
+#
+# Pattern: <ip_address>:<port>
+#
+#listening-ports = "127.0.0.1:8085"
 
-document-root = "../www"
-mongoose-threads = "4"
+#
+# Valid directory path in which to look for basileus WebUI files.
+#
+#document-root = "@WWWDIR@"
 
-music-dirs = { "/home/tworaz/music" }
-database-file = "basileus.sqlite3"
+#
+# Number of moongose web server worker threads. Increasing this
+# value will allow basileus to service more concurrent requests
+# at the same time at the expense of slightly higher memory usage.
+#
+#mongoose-threads = "4"
+
+#
+# Path to database file storring informatino about local music
+# collection. This option can also take a special value of string
+# ":memory:". In this case the database file will only be storred
+# in system volatile memory. This means it will have to be created
+# at each startup and will be lost when basileus is terminated.
+#
+#database-path = "@DBDIR@/basileus.sqlite3"
+
+#
+# Comma separated list of local file system directory in which
+# to look for music files.
+#
+music-dirs = { "@DEFAULT_MUSIC_DIR@" }

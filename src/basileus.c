@@ -144,6 +144,8 @@ basileus_init(const char *config_path)
 		goto failure;
 	}
 
+	log_info("Basileus %d.%d started", BASILEUS_VERSION_MAJOR, BASILEUS_VERSION_MINOR);
+
 	return app;
 
 failure:

@@ -101,3 +101,5 @@ ADD_CUSTOM_COMMAND(
 	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/basileus-music-db.sql
 	COMMENT "Generating sqlite3 database header file ..."
 )
+
+INSTALL (PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME} DESTINATION ${BINDIR})

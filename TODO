@@ -7,11 +7,8 @@ WebUI:
 
 Server:
 * add initscripts for systemd and openrc
-* Add proper cmake install target
-* Make more of config.h variables configurable via cmake
 * Support keep-alive connections
 * Alternative to mongoose?
-* Check for resource leaks.
 * Add support for HTTPS
 * Add some sort of authentication mechanism
 * Use inotify/kqueue to watch music directories
@@ -20,5 +17,4 @@ Server:
 Misc:
 * Add ChangeLog and AUTHORS file.
 * Add documentation (README)
-* Cleanup and document default configuration file
 * License for WebUI?

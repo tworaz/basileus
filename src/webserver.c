@@ -41,6 +41,16 @@ typedef struct {
 	music_db_t          *music_db;
 } _webserver_t;
 
+#define MAX_QUERY_LENGTH 1024
+
+#define ERR_QUERY_TOO_LONG "HTTP/1.1 400 Bad Request\r\n \
+                           Content-Type: text/plain\r\n \
+			   Content-Length: 21\r\n \
+			   \r\n \
+			   Query string too long"
+
+#define ERR_GENERIC "HTTP/1.1 500 Internal Server Error\r\n"
+
 static int
 _log_message(const struct mg_connection *conn, const char *message)
 {
@@ -74,7 +84,7 @@ failure:
 	if (artists) {
 		json_object_put(artists);
 	}
-	mg_printf(conn, "HTTP/1.1 500 Internal Server Error\r\n");
+	mg_printf(conn, ERR_GENERIC);
 	return 1;
 
 }
@@ -82,10 +92,13 @@ failure:
 static int
 _handle_get_albums(struct mg_connection *conn, music_db_t *mdb, const char *query)
 {
-	char decode_buf[1024];
+	char decode_buf[MAX_QUERY_LENGTH];
+	const char *err_str = ERR_GENERIC;
 
-	/* XXX: Handle long buff */
-	mg_get_var(query, strlen(query), "artist", decode_buf, sizeof(decode_buf));
+	if (mg_get_var(query, strlen(query), "artist", decode_buf, sizeof(decode_buf)) <= 0) {
+		err_str = ERR_QUERY_TOO_LONG;
+		goto failure;
+	}
 
 	struct json_object *albums = music_db_get_albums(mdb, decode_buf);
 	if (albums == NULL) {
@@ -109,7 +122,7 @@ failure:
 	if (albums) {
 		json_object_put(albums);
 	}
-	mg_printf(conn, "HTTP/1.1 500 Internal Server Error\r\n");
+	mg_printf(conn, "%s", err_str);
 
 	return 1;
 }
@@ -117,12 +130,18 @@ failure:
 static int
 _handle_get_songs(struct mg_connection *conn, music_db_t *mdb, const char *query)
 {
-	char artist_buf[1024];
-	char album_buf[1024];
+	char artist_buf[MAX_QUERY_LENGTH];
+	char album_buf[MAX_QUERY_LENGTH];
+	const char *err_str = ERR_GENERIC;
 
-	/* XXX: Handle long buff */
-	mg_get_var(query, strlen(query), "artist", artist_buf, sizeof(artist_buf));
-	mg_get_var(query, strlen(query), "album", album_buf, sizeof(album_buf));
+	if (mg_get_var(query, strlen(query), "artist", artist_buf, sizeof(artist_buf)) <= 0) {
+		err_str = ERR_QUERY_TOO_LONG;
+		goto failure;
+	}
+	if (mg_get_var(query, strlen(query), "album", album_buf, sizeof(album_buf)) <= 0) {
+		err_str = ERR_QUERY_TOO_LONG;
+		goto failure;
+	}
 
 	struct json_object *songs = music_db_get_songs(mdb, artist_buf, album_buf);
 	if (songs == NULL) {
@@ -146,7 +165,7 @@ failure:
 	if (songs) {
 		json_object_put(songs);
 	}
-	mg_printf(conn, "HTTP/1.1 500 Internal Server Error\r\n");
+	mg_printf(conn, "%s", err_str);
 
 	return 1;
 }
@@ -154,11 +173,15 @@ failure:
 static int
 _handle_stream(struct mg_connection *conn, music_db_t *mdb, const char *query)
 {
-	char decode_buf[1024];
+	char decode_buf[MAX_QUERY_LENGTH];
 	char *path = NULL;
+	const char* err_str = ERR_GENERIC;
 
-	/* XXX: Handle long buff */
-	mg_get_var(query, strlen(query), "song", decode_buf, sizeof(decode_buf));
+	if (mg_get_var(query, strlen(query), "song", decode_buf, sizeof(decode_buf)) <= 0) {
+		err_str = ERR_QUERY_TOO_LONG;
+		goto failure;
+	}
+
 	path = music_db_get_song_path(mdb, decode_buf);
 	if (path == NULL) {
 		goto failure;
@@ -171,7 +194,7 @@ failure:
 	if (path) {
 		free(path);
 	}
-	mg_printf(conn, "HTTP/1.1 500 Internal Server Error\r\n");
+	mg_printf(conn, "%s", err_str);
 
 	return 1;
 }

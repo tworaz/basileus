@@ -1,4 +1,5 @@
 PRAGMA foreign_keys = ON;
+PRAGMA journal_mode = WAL;
 
 CREATE TABLE IF NOT EXISTS artists(
 	id		INTEGER PRIMARY KEY,

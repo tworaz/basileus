@@ -35,6 +35,7 @@ typedef void * basileus_t;
 typedef enum {
 	TERMINATE,
 	REFRESH_MUSIC_DB,
+	REFRESH_MUSIC_DB_FINISHED,
 } basileus_action_t;
 
 basileus_t

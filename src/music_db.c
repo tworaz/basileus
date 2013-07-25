@@ -46,6 +46,7 @@
 #include "music_db.h"
 #include "music_tag.h"
 #include "mongoose.h"
+#include "basileus.h"
 #include "basileus-music-db.h"
 
 typedef struct {
@@ -419,6 +420,7 @@ music_db_scan_thread(void *data)
 		log_info("Music collection scan complete.");
 	}
 
+	basileus_trigger_action(REFRESH_MUSIC_DB_FINISHED);
 	pthread_exit(0);
 }
 
@@ -565,6 +567,13 @@ cleanup:
 	}
 
 	return ret;
+}
+
+void
+music_db_refresh_finish(music_db_t mdb)
+{
+	_music_db_t *_mdb = mdb;
+	pthread_join(_mdb->scan_thread, NULL);
 }
 
 int

@@ -58,11 +58,11 @@ static int mainloop_fd = -1;
 static void
 _basileus_sighandler(int signal)
 {
-	log_debug("Got %s signal", strsignal(signal));
+	log_debug("Got %s", strsignal(signal));
 
 	if (signal == SIGUSR1) {
 		basileus_trigger_action(REFRESH_MUSIC_DB);
-	} else if (signal == SIGINT || signal == SIGTERM) {
+	} else if (signal == SIGINT || signal == SIGTERM || signal == SIGHUP) {
 		basileus_trigger_action(TERMINATE);
 	} else {
 		assert(0);
@@ -89,6 +89,10 @@ basileus_init(const char *config_path)
 		log_error("Failed to add SIGTERM to signal set!");
 		return NULL;
 	}
+	if (0 != sigaddset(&sigset, SIGHUP)) {
+		log_error("Failed to add SIGHUP to signal set!");
+		return NULL;
+	}
 	if (0 != sigaddset(&sigset, SIGUSR1)) {
 		log_error("Failed to add SIGUSR1 to signal set!");
 		return NULL;
@@ -102,6 +106,10 @@ basileus_init(const char *config_path)
 	}
 	if (-1 == sigaction(SIGTERM, &sa, NULL)) {
 		log_error("Failed to register SIGTERM handler: %s", strerror(errno));
+		return NULL;
+	}
+	if (-1 == sigaction(SIGHUP, &sa, NULL)) {
+		log_error("Failed to register SIGHUP handler: %s", strerror(errno));
 		return NULL;
 	}
 	if (-1 == sigaction(SIGUSR1, &sa, NULL)) {
@@ -208,6 +216,10 @@ basileus_run(basileus_t basileus)
 		case REFRESH_MUSIC_DB:
 			log_debug("Got music db refresh request.");
 			(void)music_db_refresh(app->music_db);
+			break;
+
+		case REFRESH_MUSIC_DB_FINISHED:
+			music_db_refresh_finish(app->music_db);
 			break;
 
 		default:

@@ -160,6 +160,10 @@ _parse_config_file(_cfg_t *cfg, const char *file)
 		errno = 0;
 	}
 
+	if (lineptr != NULL) {
+		free(lineptr);
+	}
+
 	fclose(cf);
 	if (errno == EINVAL) {
 		log_error("Failed to parse configuration file: %s", file);
@@ -178,6 +182,7 @@ cfg_init(const char* cfg_path)
 
 	_cfg_t *_cfg = NULL;
 	_cfg = malloc (sizeof(_cfg_t));
+	memset(_cfg, 0, sizeof(_cfg_t));
 	if (_cfg == NULL) {
 		log_error("Failed to allocate memory for program configuration!");
 		return NULL;

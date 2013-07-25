@@ -45,6 +45,9 @@ music_db_shutdown(music_db_t);
 int
 music_db_refresh(music_db_t);
 
+void
+music_db_refresh_finish(music_db_t);
+
 struct json_object *
 music_db_get_artists(const music_db_t);
 

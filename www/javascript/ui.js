@@ -100,6 +100,9 @@ BasileusUI.prototype.OnLoad = function()
 	bar.addEventListener('mouseover', function(evt) {
 		if (_thiz.PreviewPosition(evt.clientX)) {
 			document.getElementById('seek-preview').style.display = "inline";
+			document.getElementById('progress-bar-outline').style.cursor = "none";
+		} else {
+			document.getElementById('progress-bar-outline').style.cursor = "default";
 		}
 	});
 	bar.addEventListener('mouseout', function(evt) {

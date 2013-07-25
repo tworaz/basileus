@@ -42,10 +42,10 @@
 #include <sqlite3.h>
 
 #include "cfg.h"
+#include "md5.h"
 #include "logger.h"
 #include "music_db.h"
 #include "music_tag.h"
-#include "mongoose.h"
 #include "basileus.h"
 #include "basileus-music-db.h"
 
@@ -208,7 +208,7 @@ _music_db_add_song(_music_db_t *mdb, const char *path, music_tag_t *tag, sqlite3
 	int ret = -1;
 
 	memset(hash, 0, sizeof(hash));
-	mg_md5(hash, path, NULL);
+	md5(hash, path, NULL);
 
 	sqlite3_mutex_enter(mdb->db_mutex);
 

@@ -86,7 +86,6 @@ failure:
 	}
 	mg_printf(conn, ERR_GENERIC);
 	return 1;
-
 }
 
 static int
@@ -119,6 +118,7 @@ _handle_get_albums(struct mg_connection *conn, music_db_t *mdb, const char *quer
 	json_object_put(albums);
 
 	return 1;
+
 failure:
 	if (albums) {
 		json_object_put(albums);
@@ -248,8 +248,15 @@ webserver_init(cfg_t *cfg, music_db_t *db)
 	ws->cbs.begin_request = _begin_request;
 	ws->cbs.log_message = _log_message;
 
+	const char *address = cfg_get_str(cfg, CFG_LISTENING_ADDRESS);
+	const char *port = cfg_get_str(cfg, CFG_LISTENING_PORT);
+
+	char buf[22]; /* 127.127.127.127:65535\0 */
+	memset(buf, 0, sizeof(buf));
+	snprintf(buf, sizeof(buf), "%s:%s", address, port);
+
 	const char *mg_opts[] = {
-		"listening_ports", cfg_get_str(cfg, CFG_BIND_ADDRESS),
+		"listening_ports", buf,
 		"document_root", cfg_get_str(cfg, CFG_DOCUMENT_ROOT),
 		"num_threads", cfg_get_str(cfg, CFG_MONGOOSE_THREADS),
 		"enable_directory_listing", "no",

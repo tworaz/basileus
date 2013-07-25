@@ -1,13 +1,19 @@
 # Configuration file for basileus music player
 
 #
-# Local address specification on which basileus built-in web
-# server should listen on. In case where only port number is
-# specified basileus will listen on all avaliable interfaces.
+# Local IP address on which basileus daemon should listen for
+# incomming connections.
 #
-# Pattern: <ip_address>:<port>
+# Default: 127.0.0.1
 #
-#listening-ports = "127.0.0.1:8085"
+#listening-address = "127.0.0.1"
+
+#
+# Local port number on which basileis daemon should listen on.
+#
+# Default: 8085
+#
+#listening-port = "8085"
 
 #
 # Valid directory path in which to look for basileus WebUI files.

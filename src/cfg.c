@@ -37,16 +37,17 @@
 #include "logger.h"
 #include "config.h"
 
-static struct {
+static const struct {
 	cfg_key_t	key;
 	const char     *key_str;
 	const char     *default_value;
-} g_opts_data[] = {
-	{ CFG_BIND_ADDRESS,      "listening-ports",  DEFAULT_LISTENING_PORTS },
-	{ CFG_DOCUMENT_ROOT,     "document-root",    DEFAULT_DOCUMENT_ROOT },
-	{ CFG_DATABASE_PATH,     "database-path",    DEFAULT_DB_PATH },
-	{ CFG_MONGOOSE_THREADS,  "mongoose-threads", DEFAULT_MONGOOSE_THREADS },
-	{ CFG_MUSIC_DIR,         "music-dir",        DEFAULT_MUSIC_DIR }
+} options_table[] = {
+	{ CFG_LISTENING_ADDRESS, "listening-address", DEFAULT_LISTENING_ADDRESS },
+	{ CFG_LISTENING_PORT,    "listening-port",    DEFAULT_LISTENING_PORT },
+	{ CFG_DOCUMENT_ROOT,     "document-root",     DEFAULT_DOCUMENT_ROOT },
+	{ CFG_DATABASE_PATH,     "database-path",     DEFAULT_DB_PATH },
+	{ CFG_MONGOOSE_THREADS,  "mongoose-threads",  DEFAULT_MONGOOSE_THREADS },
+	{ CFG_MUSIC_DIR,         "music-dir",         DEFAULT_MUSIC_DIR }
 };
 
 typedef struct {
@@ -97,7 +98,7 @@ _parse_line(_cfg_t *cfg, char *line)
 	}
 
 	for (i = 0; i < CFG_KEY_LAST; ++i) {
-		const char *opt_key = g_opts_data[i].key_str;
+		const char *opt_key = options_table[i].key_str;
 		int key_len = strlen(opt_key);
 		if (key_len >= strlen(key)) {
 			log_error("Configuration key too short: %s", key);
@@ -197,7 +198,7 @@ cfg_init(const char* cfg_path)
 	int idx;
 	log_debug("Configuration:");
 	for (idx = 0; idx < CFG_KEY_LAST; idx++) {
-		log_debug("\t%s = %s", g_opts_data[idx].key_str, cfg_get_str(_cfg, idx));
+		log_debug("\t%s = %s", options_table[idx].key_str, cfg_get_str(_cfg, idx));
 	}
 #endif
 
@@ -227,7 +228,7 @@ cfg_get_str(cfg_t *cfg, cfg_key_t key)
 	assert(key < CFG_KEY_LAST);
 
 	if (_cfg->values[key] == NULL) {
-		return g_opts_data[key].default_value;
+		return options_table[key].default_value;
 	} else {
 		return _cfg->values[key];
 	}

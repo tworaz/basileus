@@ -27,15 +27,27 @@
  * SUCH DAMAGE.
  */
 
-#ifndef _CONFIGURATION_H_
-#define _CONFIGURATION_H_
+#ifndef _CFG_H_
+#define _CFG_H_
 
-#include <confuse.h>
+typedef enum {
+	CFG_BIND_ADDRESS = 0,
+	CFG_DOCUMENT_ROOT,
+	CFG_DATABASE_PATH,
+	CFG_MONGOOSE_THREADS,
+	CFG_MUSIC_DIR,
+	CFG_KEY_LAST
+} cfg_key_t;
+
+typedef void cfg_t;
 
 cfg_t *
-configuration_init(const char* cfg_path);
+cfg_init(const char* cfg_path);
 
 void
-configuration_free(cfg_t *cfg);
+cfg_free(cfg_t *cfg);
 
-#endif /* _CONFIGURATION_H_ */
+const char*
+cfg_get_str(cfg_t *cfg, cfg_key_t key);
+
+#endif /* _CFG_H_ */

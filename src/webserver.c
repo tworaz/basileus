@@ -249,9 +249,9 @@ webserver_init(cfg_t *cfg, music_db_t *db)
 	ws->cbs.log_message = _log_message;
 
 	const char *mg_opts[] = {
-		"listening_ports", cfg_getstr(cfg, "listening-ports"),
-		"document_root", cfg_getstr(cfg, "document-root"),
-		"num_threads", cfg_getstr(cfg, "mongoose-threads"),
+		"listening_ports", cfg_get_str(cfg, CFG_BIND_ADDRESS),
+		"document_root", cfg_get_str(cfg, CFG_DOCUMENT_ROOT),
+		"num_threads", cfg_get_str(cfg, CFG_MONGOOSE_THREADS),
 		"enable_directory_listing", "no",
 		"enable_keep_alive", "no", /* Broken in mongoose 3.7 */
 		NULL

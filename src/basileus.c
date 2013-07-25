@@ -41,7 +41,7 @@
 #include "basileus.h"
 #include "music_db.h"
 #include "webserver.h"
-#include "configuration.h"
+#include "cfg.h"
 
 typedef struct {
 	cfg_t           *config;
@@ -128,7 +128,7 @@ basileus_init(const char *config_path)
 		goto failure;
 	}
 
-	if ((app->config = configuration_init(config_path)) == NULL) {
+	if ((app->config = cfg_init(config_path)) == NULL) {
 		goto failure;
 	}
 
@@ -169,7 +169,7 @@ basileus_shutdown(basileus_t basileus)
 		app->music_db = NULL;
 	}
 	if (app->config) {
-		configuration_free(app->config);
+		cfg_free(app->config);
 		app->config = NULL;
 	}
 	if (app->sockfds[0]) {

@@ -34,4 +34,4 @@
 # Comma separated list of local file system directory in which
 # to look for music files.
 #
-music-dirs = { "@DEFAULT_MUSIC_DIR@" }
+music-dir = "@DEFAULT_MUSIC_DIR@"

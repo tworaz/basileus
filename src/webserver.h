@@ -30,7 +30,7 @@
 #ifndef _WEBSERVER_H_
 #define _WEBSERVER_H_
 
-#include "configuration.h"
+#include "cfg.h"
 #include "music_db.h"
 
 typedef void * webserver_t;

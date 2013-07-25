@@ -41,11 +41,11 @@
 
 #include <sqlite3.h>
 
+#include "cfg.h"
 #include "logger.h"
 #include "music_db.h"
 #include "music_tag.h"
 #include "mongoose.h"
-#include "configuration.h"
 #include "basileus-music-db.h"
 
 typedef struct {
@@ -306,7 +306,7 @@ music_db_scan_directory(_music_db_t *mdb, const char *dir)
 	struct dirent *entry = NULL, *dirent_buf = NULL;
 	DIR *dirp = NULL;;
 	struct stat st;
-	char *full_path;
+	char *full_path = NULL;
 	int ret = 0, len = 0, name_max = 0;
 
 	if (lstat(dir, &st) != 0) {
@@ -400,18 +400,13 @@ static void *
 music_db_scan_thread(void *data)
 {
 	_music_db_t *mdb = data;
-	int i, ret = 0;
+	int ret = 0;
 
-        for (i = 0; i < cfg_size(mdb->cfg, "music-dirs"); i++)
-	{
-		const char *dir = cfg_getnstr(mdb->cfg, "music-dirs", i);
-		log_info("Scanning music directory: %s", dir);
-		ret = music_db_scan_directory(mdb, dir);
-		if (ret == EINTR) {
-			break;
-		} else if (ret) {
-			log_warning("Failed to scan music directory: %s", dir);
-		}
+	const char *dir = cfg_get_str(mdb->cfg, CFG_MUSIC_DIR);
+	log_info("Scanning music directory: %s", dir);
+	ret = music_db_scan_directory(mdb, dir);
+	if (ret && ret != EINTR) {
+		log_warning("Failed to scan music directory: %s", dir);
 	}
 
 	pthread_mutex_lock(&mdb->scan_mutex);
@@ -476,7 +471,7 @@ music_db_init(cfg_t *cfg)
 		return NULL;
 	}
 
-	if (sqlite3_open(cfg_getstr(cfg, "database-path"), &mdb->db)) {
+	if (sqlite3_open(cfg_get_str(cfg, CFG_DATABASE_PATH), &mdb->db)) {
 #ifdef _DEBUG
 		if (SQLITE_OK == sqlite3_open("basileus-dev.sqlite3", &mdb->db)) {
 			goto devdb;

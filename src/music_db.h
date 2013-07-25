@@ -32,7 +32,7 @@
 
 #include <json_object.h>
 
-#include "configuration.h"
+#include "cfg.h"
 
 typedef void * music_db_t;
 

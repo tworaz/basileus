@@ -45,7 +45,6 @@ SET (WWWDIR "${DATADIR}/www" CACHE STRING "WebUI installation directory")
 SET (DEFAULT_MUSIC_DIR "/media/music" CACHE STRING "Default directory in which to look for music files")
 
 INCLUDE (FindPkgConfig)
-PKG_CHECK_MODULES (LIBCONFUSE REQUIRED libconfuse)
 PKG_CHECK_MODULES (SQLITE3 REQUIRED sqlite3)
 PKG_CHECK_MODULES (JSON_C REQUIRED json-c)
 IF (USE_TAGLIB)

@@ -6,9 +6,8 @@ WebUI:
 * Stor application state (playlist, currently played song, toggle button states)
 
 Server:
-* add initscripts for systemd and openrc
-* Support keep-alive connections
-* Alternative to mongoose?
+* Add support for converting audio formats on the fly.
+* Add initscripts for systemd and openrc
 * Add support for HTTPS
 * Add some sort of authentication mechanism
 * Use inotify/kqueue to watch music directories

@@ -241,7 +241,7 @@ BasileusUI.prototype.SelectAlbum = function(artist, album)
 			var item = document.createElement("div");
 			var text = document.createElement("div");
 			var add = document.createElement("i");
-			var txt = document.createTextNode(songs[i][0]);
+			var txt = document.createTextNode(songs[i]["title"]);
 
 			if (i % 2) {
 				item.className = "media-browser-item rounded-box odd-item";
@@ -255,14 +255,15 @@ BasileusUI.prototype.SelectAlbum = function(artist, album)
 			item.appendChild(text);
 			item.appendChild(add);
 
-			item.setAttribute('song-id', songs[i][2]);
-			item.setAttribute('song-length', songs[i][1]);
+			item.setAttribute('song-id', songs[i]["hash"]);
+			item.setAttribute('song-length', songs[i]["length"]);
 
 			var queueSong = function(songNode) {
-				var title = songNode.textContent;
-				var length = songNode.getAttribute('song-length');
-				var id = songNode.getAttribute('song-id');
-				var list = [ [ title, length, id ] ];
+				var list = [];
+				list[0] = new Object();
+				list[0]["title"] = songNode.textContent;
+				list[0]["length"] = songNode.getAttribute('song-length');
+				list[0]["hash"] = songNode.getAttribute('song-id');
 				_thiz.AddSongsToPlaylist(_selectedArtist, album, list);
 			};
 
@@ -314,10 +315,10 @@ BasileusUI.prototype.AddSongsToPlaylist = function(artist, album, songs)
 		del_song.className = "button remove-song icon-remove"
 
 		track_cell.textContent = track;
-		title_cell.textContent = songs[i][0];
+		title_cell.textContent = songs[i]["title"];
 		album_cell.textContent = album;
 		artist_cell.textContent = artist;
-		length_cell.textContent = seconds_to_string(songs[i][1]);
+		length_cell.textContent = seconds_to_string(songs[i]["length"]);
 
 		txt_wrapper.appendChild(track_cell);
 		txt_wrapper.appendChild(title_cell);
@@ -340,8 +341,8 @@ BasileusUI.prototype.AddSongsToPlaylist = function(artist, album, songs)
 
 		playlist.appendChild(row);
 
-		songs[i][3] = artist;
-		songs[i][4] = album;
+		songs[i]["artist"] = artist;
+		songs[i]["album"] = album;
 	}
 	_playlist = _playlist.concat(songs);
 }
@@ -417,7 +418,7 @@ BasileusUI.prototype.Play = function(song)
 
 	playlist.children[_currentSong].className += " selected-item";
 
-	var songID = _playlist[_currentSong][2];
+	var songID = _playlist[_currentSong]["hash"];
 	if (_play_timer) {
 		window.clearTimeout(_play_timer);
 		_play_timer = null;
@@ -451,7 +452,7 @@ BasileusUI.prototype.UpdateNowPlaying = function()
 {
 	var d = document.getElementById('now-playing');
 	var song = _playlist[_currentSong];
-	d.textContent = song[0] + ' / ' + song[3];
+	d.textContent = song["title"] + ' / ' + song["artist"];
 }
 
 BasileusUI.prototype.UpdateProgressBar = function()

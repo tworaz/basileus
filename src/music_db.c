@@ -740,27 +740,29 @@ music_db_get_songs(const music_db_t mdb, const char *artist, const char *album)
 			assert(sqlite3_column_type(stmt, 1) == SQLITE_INTEGER);
 			assert(sqlite3_column_type(stmt, 2) == SQLITE_TEXT);
 
-			song = json_object_new_array();
+			song = json_object_new_object();
 			if (song == NULL) {
 				log_error("Failed to create JSON song array!");
 				goto failure;
 			}
 
 			struct json_object *title = json_object_new_string((const char *)sqlite3_column_text(stmt, 0));
-			if (json_object_array_add(song, title)) {
-				json_object_put(title);
+			if (NULL == title) {
 				goto failure;
 			}
+			json_object_object_add(song, "title", title);
+
 			struct json_object *length = json_object_new_int(sqlite3_column_int(stmt, 1));
-			if (json_object_array_add(song, length)) {
-				json_object_put(length);
+			if (NULL == length) {
 				goto failure;
 			}
+			json_object_object_add(song, "length", length);
+
 			struct json_object *hash = json_object_new_string((const char *)sqlite3_column_text(stmt, 2));
-			if (json_object_array_add(song, hash)) {
-				json_object_put(hash);
+			if (NULL == hash) {
 				goto failure;
 			}
+			json_object_object_add(song, "hash", hash);
 
 			if (json_object_array_add(arr, song)) {
 				log_error("Failed to add SONG to JSON array!");
@@ -782,6 +784,7 @@ done:
 	}
 
 	sqlite3_mutex_leave(_mdb->db_mutex);
+
 	return arr;
 
 failure:

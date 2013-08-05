@@ -108,7 +108,7 @@ _parse_line(_cfg_t *cfg, char *line)
 			continue;
 		}
 
-		char *val = index(line, '=');
+		char *val = strchr(line, '=');
 		if (val == NULL) {
 			log_error("Missing equal sign for option: %s", opt_key);
 			return -1;

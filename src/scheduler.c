@@ -137,7 +137,7 @@ _worker_thread(void *arg)
 			log_error("Condition variable wait failed!");
 			pthread_exit((void **)-1);
 		}
-		log_trace("Scheduler thread %d woken up", id);
+		log_trace("Scheduler: Worker thread %d woken up", id);
 		if (ts->terminate) {
 			break;
 		}
@@ -199,6 +199,7 @@ _get_thread_count(cfg_t *cfg)
 		return 1;
 	} else if (cnt > 1) {
 		/* Leave one core for the main loop */
+		log_info("Scheduler: Found %d CPUs", cnt);
 		return cnt - 1;
 	}
 
@@ -241,7 +242,7 @@ scheduler_new(cfg_t *config, struct event_base *evb)
 	}
 
 	ts->workers_count = _get_thread_count(config);
-	log_info("Scheduler: found %d CPUs", ts->workers_count);
+	log_info("Scheduler: Using %d worker threads", ts->workers_count);
 
 	ts->workers = malloc(ts->workers_count * sizeof(pthread_t));
 	if (NULL == ts->workers) {

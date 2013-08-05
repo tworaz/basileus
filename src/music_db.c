@@ -27,6 +27,8 @@
  * SUCH DAMAGE.
  */
 
+#define _BSD_SOURCE /* We want DT_DIR, DT_REG  */
+
 #include <errno.h>
 #include <assert.h>
 #include <stdlib.h>

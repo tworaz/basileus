@@ -48,7 +48,7 @@ static int is_big_endian(void) {
 static void byteReverse(unsigned char *buf, unsigned longs) {
   uint32_t t;
 
-  // Forrest: MD5 expect LITTLE_ENDIAN, swap if BIG_ENDIAN
+  /* Forrest: MD5 expect LITTLE_ENDIAN, swap if BIG_ENDIAN */
   if (is_big_endian()) {
     do {
       t = (uint32_t) ((unsigned) buf[3] << 8 | buf[2]) << 16 |
@@ -67,8 +67,10 @@ static void byteReverse(unsigned char *buf, unsigned longs) {
 #define MD5STEP(f, w, x, y, z, data, s) \
   ( w += f(x, y, z) + data,  w = w<<s | w>>(32-s),  w += x )
 
-// Start MD5 accumulation.  Set bit count to 0 and buffer to mysterious
-// initialization constants.
+/*
+ * Start MD5 accumulation.  Set bit count to 0 and buffer to mysterious
+ * initialization constants.
+ */
 static void MD5Init(MD5_CTX *ctx) {
   ctx->buf[0] = 0x67452301;
   ctx->buf[1] = 0xefcdab89;

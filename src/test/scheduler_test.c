@@ -145,7 +145,7 @@ int
 main(int argc, char *argv[])
 {
 	scheduler_t *sched = NULL;
-	struct event *sigevent;
+	struct event *sigevent = NULL;
 	struct event_base *evb;
 	int ret = 0;
 

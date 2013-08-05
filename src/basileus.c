@@ -112,7 +112,7 @@ basileus_init(const char *config_path)
 	}
 	memset(app, 0, sizeof(_basileus_t));
 
-#ifdef _DEBUG
+#if defined(_DEBUG) && !defined(_VALGRIND)
 	event_enable_debug_mode();
 #endif /* _DEBUG */
 
@@ -130,7 +130,7 @@ basileus_init(const char *config_path)
 		goto failure;
 	}
 
-#ifdef _DEBUG
+#if defined(_DEBUG) && !defined(_VALGRIND)
 	evthread_enable_lock_debuging();
 #endif /* _DEBUG */
 

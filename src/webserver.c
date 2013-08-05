@@ -569,6 +569,9 @@ failure:
 	if (ws->ev_http) {
 		evhttp_free(ws->ev_http);
 	}
+	if (ws->ev_sock) {
+		evhttp_del_accept_socket(ws->ev_http, ws->ev_sock);
+	}
 	free(ws);
 	return NULL;
 }
@@ -577,6 +580,7 @@ void
 webserver_shutdown(webserver_t ws)
 {
 	_webserver_t *_ws = ws;
+	evhttp_del_accept_socket(_ws->ev_http, _ws->ev_sock);
 	evhttp_free(_ws->ev_http);
 	free(_ws);
 }

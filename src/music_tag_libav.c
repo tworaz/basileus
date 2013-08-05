@@ -40,6 +40,25 @@ typedef struct
 	AVFormatContext *ctx;
 } _music_tag_libav_t;
 
+/*
+ * Skip files oten found in music directories.
+ */
+static int
+_should_skip(const char *file)
+{
+	static const char *skip_ext[] = {
+		".pls\0", ".m3u\0", ".jpeg\0", ".jpg\0", ".ini\0"
+	};
+
+	int i;
+	for (i = 0; i < sizeof(skip_ext) / sizeof(skip_ext[0]); i++) {
+		if (NULL != strstr(file, skip_ext[i])) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
 static char *
 _strip_tailing_whitespace(char *str)
 {
@@ -69,13 +88,17 @@ music_tag_create(const char *file)
 		libav_initialized = 1;
 	}
 
+	if (_should_skip(file)) {
+		return NULL;
+	}
+
 	if (avformat_open_input(&container, file, NULL, NULL) < 0) {
-		log_debug("Could not open file: %s", file);
+		log_warning("Could not open file: %s", file);
 		return NULL;
 	}
 
 	if (avformat_find_stream_info(container, NULL) < 0) {
-		log_debug("Could not find file info: %s", file);
+		log_trace("Could not find file info: %s", file);
 		goto failure;
 	}
 
@@ -87,7 +110,7 @@ music_tag_create(const char *file)
 	}
 
 	if (audio_streams == 0) {
-		log_debug("No audio streams found in file: %s", file);
+		log_trace("No audio streams found in file: %s", file);
 		goto failure;
 	}
 
@@ -99,21 +122,21 @@ music_tag_create(const char *file)
 
 	tag = av_dict_get(container->metadata, "artist", NULL, AV_DICT_IGNORE_SUFFIX);
 	if (tag == NULL) {
-		log_debug("Failed to read artist field from: %s", file);
+		log_warning("Failed to read artist field from: %s", file);
 		goto failure;
 	}
 	ret->base.artist = _strip_tailing_whitespace(tag->value);
 
 	tag = av_dict_get(container->metadata, "title", NULL, AV_DICT_IGNORE_SUFFIX);
 	if (tag == NULL) {
-		log_debug("Failed to read title field from: %s", file);
+		log_warning("Failed to read title field from: %s", file);
 		goto failure;
 	}
 	ret->base.title = _strip_tailing_whitespace(tag->value);
 
 	tag = av_dict_get(container->metadata, "album", NULL, AV_DICT_IGNORE_SUFFIX);
 	if (tag == NULL) {
-		log_debug("Failed to read album field from: %s", file);
+		log_warning("Failed to read album field from: %s", file);
 		goto failure;
 	}
 	ret->base.album = _strip_tailing_whitespace(tag->value);
@@ -135,9 +158,7 @@ failure:
 	if (container) {
 		avformat_close_input(&container);
 	}
-	if (ret) {
-		free(ret);
-	}
+	free(ret);
 	return NULL;
 }
 

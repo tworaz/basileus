@@ -21,13 +21,6 @@
 #document-root = "@WWWDIR@"
 
 #
-# Number of moongose web server worker threads. Increasing this
-# value will allow basileus to service more concurrent requests
-# at the same time at the expense of slightly higher memory usage.
-#
-#mongoose-threads = "4"
-
-#
 # Path to database file storring informatino about local music
 # collection. This option can also take a special value of string
 # ":memory:". In this case the database file will only be storred
@@ -35,6 +28,13 @@
 # at each startup and will be lost when basileus is terminated.
 #
 #database-path = "@DBDIR@/basileus.sqlite3"
+
+#
+# Number of worker threads used by scheduler subsystem. When 0
+# the amount of worker threads will be set to the number of CPU
+# cores - 1. The minimum value is 1.
+#
+#scheduler-threads = "0"
 
 #
 # Comma separated list of local file system directory in which

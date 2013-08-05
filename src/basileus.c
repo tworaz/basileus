@@ -33,88 +33,76 @@
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
-#include <sys/types.h>
-#include <sys/socket.h>
+
+#include <event2/event.h>
+#include <event2/thread.h>
 
 #include "config.h"
 #include "logger.h"
 #include "basileus.h"
+#include "scheduler.h"
 #include "music_db.h"
 #include "webserver.h"
 #include "cfg.h"
 
 typedef struct {
-	cfg_t           *config;
-	music_db_t      *music_db;
-	webserver_t	    *webserver;
+	cfg_t               *config;
+	music_db_t          *music_db;
+	webserver_t         *webserver;
+	scheduler_t         *scheduler;
 
-#define _SOCK_READ 0
-#define _SOCK_WRITE 1
-	int		         sockfds[2];
+	struct event_base   *ev_base;
+	struct event        *term_evt;
+	struct event        *int_evt;
+	struct event        *hup_evt;
+	struct event        *usr1_evt;
 } _basileus_t;
 
-static int mainloop_fd = -1;
+void
+_rescan_task(void *data)
+{
+	_basileus_t *app = data;
+	log_debug("Got music db refresh request.");
+	(void)music_db_refresh(app->music_db);
+}
 
 static void
-_basileus_sighandler(int signal)
+_basileus_sighandler(evutil_socket_t signal, short events, void *user_data)
 {
-	log_debug("Got %s", strsignal(signal));
+	_basileus_t *app = user_data;
 
-	if (signal == SIGUSR1) {
-		basileus_trigger_action(REFRESH_MUSIC_DB);
-	} else if (signal == SIGINT || signal == SIGTERM || signal == SIGHUP) {
-		basileus_trigger_action(TERMINATE);
+	if (signal == SIGINT || signal == SIGTERM || signal == SIGHUP) {
+		log_debug("Got termination request, terminating main loop");
+		event_base_loopexit(app->ev_base, NULL);
+	} else if (signal == SIGUSR1) {
+		event_t *e = malloc(sizeof(event_t));
+		if (e == NULL) {
+			log_error("Failed to allocate memory for rescan task!");
+			return;
+		}
+		memset(e, 0, sizeof(event_t));
+
+		e->name = "Music Database rescan";
+		e->run = _rescan_task;
+		e->user_data = user_data;
+		if (0 != scheduler_add_event(app->scheduler, e)) {
+			log_error("Failed to scheduler Music DB update task!");
+			free(e);
+			return;
+		}
 	} else {
 		assert(0);
 	}
 }
 
-basileus_t
+basileus_t *
 basileus_init(const char *config_path)
 {
 	_basileus_t *app = NULL;
-	struct sigaction sa;
-	sigset_t sigset;
+	struct event_base *evb = NULL;
 
 	if (!config_path) {
 		config_path = DEFAULT_CONFIG_FILE_PATH;
-	}
-
-	sigemptyset(&sigset);
-	if (0 != sigaddset(&sigset, SIGINT)) {
-		log_error("Failed to add SIGINT to signal set!");
-		return NULL;
-	}
-	if (0 != sigaddset(&sigset, SIGTERM)) {
-		log_error("Failed to add SIGTERM to signal set!");
-		return NULL;
-	}
-	if (0 != sigaddset(&sigset, SIGHUP)) {
-		log_error("Failed to add SIGHUP to signal set!");
-		return NULL;
-	}
-	if (0 != sigaddset(&sigset, SIGUSR1)) {
-		log_error("Failed to add SIGUSR1 to signal set!");
-		return NULL;
-	}
-
-	sa.sa_handler = _basileus_sighandler;
-	sa.sa_mask = sigset;
-	if (-1 == sigaction(SIGINT, &sa, NULL)) {
-		log_error("Failed to register SIGINT handler: %s", strerror(errno));
-		return NULL;
-	}
-	if (-1 == sigaction(SIGTERM, &sa, NULL)) {
-		log_error("Failed to register SIGTERM handler: %s", strerror(errno));
-		return NULL;
-	}
-	if (-1 == sigaction(SIGHUP, &sa, NULL)) {
-		log_error("Failed to register SIGHUP handler: %s", strerror(errno));
-		return NULL;
-	}
-	if (-1 == sigaction(SIGUSR1, &sa, NULL)) {
-		log_error("Failed to register SIGUSR1 handler: %s", strerror(errno));
-		return NULL;
 	}
 
 	app = malloc(sizeof(_basileus_t));
@@ -122,32 +110,67 @@ basileus_init(const char *config_path)
 		log_error("Failed to allocate memory for basileus core!");
 		goto failure;
 	}
-	app->sockfds[0] = -1;
-	app->sockfds[1] = -1;
+	memset(app, 0, sizeof(_basileus_t));
 
-	if (-1 == socketpair(AF_UNIX, SOCK_DGRAM, 0, app->sockfds)) {
-		log_error("Failed to create socket pair: %s", strerror(errno));
+#ifdef _DEBUG
+	event_enable_debug_mode();
+#endif /* _DEBUG */
+
+	evb = app->ev_base = event_base_new();
+	if (!app->ev_base) {
+		log_error("Failed to create event_base!");
 		goto failure;
 	}
-	mainloop_fd = app->sockfds[_SOCK_WRITE];
+	if (0 != evthread_use_pthreads()) {
+		log_error("Could not enable libevent thread safety!");
+		goto failure;
+	}
+	if (0 != evthread_make_base_notifiable(evb)) {
+		log_error("Failed to make event base notifiable!");
+		goto failure;
+	}
+
+#ifdef _DEBUG
+	evthread_enable_lock_debuging();
+#endif /* _DEBUG */
+
+	app->term_evt = evsignal_new(evb, SIGTERM, _basileus_sighandler, app);
+	if (!app->term_evt || event_add(app->term_evt, NULL) < 0) {
+		log_error("Failed to register SIGTERM handler!");
+		goto failure;
+	}
+	app->int_evt = evsignal_new(evb, SIGINT, _basileus_sighandler, app);
+	if (!app->int_evt || event_add(app->int_evt, NULL) < 0) {
+		log_error("Failed to register SIGINT handler!");
+		goto failure;
+	}
+	app->hup_evt = evsignal_new(evb, SIGHUP, _basileus_sighandler, app);
+	if (!app->hup_evt || event_add(app->hup_evt, NULL) < 0) {
+		log_error("Failed to register SIGHUP handler!");
+		goto failure;
+	}
+	app->usr1_evt = evsignal_new(evb, SIGUSR1, _basileus_sighandler, app);
+	if (!app->usr1_evt || event_add(app->usr1_evt, NULL) < 0) {
+		log_error("Failed to register SIGUSR1 handler!");
+		goto failure;
+	}
 
 	if (access(config_path, R_OK) != 0) {
 		log_error("Failed to open configuration file: %s\n", config_path);
 		goto failure;
 	}
-
 	if ((app->config = cfg_init(config_path)) == NULL) {
 		goto failure;
 	}
-
-	if ((app->music_db = music_db_init(app->config)) == NULL) {
+	if ((app->scheduler = scheduler_new(app->config, evb)) == NULL) {
 		goto failure;
 	}
-
-	if ((app->webserver = webserver_init(app->config, app->music_db)) == NULL) {
+	if ((app->music_db = music_db_new(app->config, app->scheduler)) == NULL) {
 		goto failure;
 	}
-
+	if ((app->webserver = webserver_init(app->config, app->music_db, evb)) == NULL) {
+		goto failure;
+	}
 	if (music_db_refresh(app->music_db)) {
 		goto failure;
 	}
@@ -164,7 +187,7 @@ failure:
 }
 
 void
-basileus_shutdown(basileus_t basileus)
+basileus_shutdown(basileus_t *basileus)
 {
 	_basileus_t *app = basileus;
 
@@ -173,79 +196,42 @@ basileus_shutdown(basileus_t basileus)
 		app->webserver = NULL;
 	}
 	if (app->music_db) {
-		music_db_shutdown(app->music_db);
+		music_db_free(app->music_db);
 		app->music_db = NULL;
+	}
+	if (app->scheduler) {
+		scheduler_free(app->scheduler);
 	}
 	if (app->config) {
 		cfg_free(app->config);
 		app->config = NULL;
 	}
-	if (app->sockfds[0]) {
-		close(app->sockfds[0]);
+	if (app->term_evt) {
+		event_free(app->term_evt);
 	}
-	if (app->sockfds[1]) {
-		close(app->sockfds[1]);
+	if (app->int_evt) {
+		event_free(app->int_evt);
+	}
+	if (app->hup_evt) {
+		event_free(app->hup_evt);
+	}
+	if (app->usr1_evt) {
+		event_free(app->usr1_evt);
+	}
+	if (app->ev_base) {
+		event_base_free(app->ev_base);
 	}
 	free(app);
 }
 
 int
-basileus_run(basileus_t basileus)
+basileus_run(basileus_t *basileus)
 {
 	_basileus_t *app = basileus;
-	basileus_action_t action;
-	ssize_t size;
 
-	while (1) {
-		size = recv(app->sockfds[_SOCK_READ], &action, sizeof(action), MSG_WAITALL);
-		if (size == -1) {
-			if (errno == EINTR) {
-				continue;
-			}
-			log_error("Failed to receive mainloop message (%d)!", errno);
-			return errno;
-		}
-		assert(size == sizeof(action));
+	log_info("Entering event dispatch loop...");
+	int ret = event_base_dispatch(app->ev_base);
+	log_info("Event dispatch loop terminated");
 
-		switch (action)
-		{
-		case TERMINATE:
-			log_debug("Got terminate action, exiting main loop.");
-			return 0;
-
-		case REFRESH_MUSIC_DB:
-			log_debug("Got music db refresh request.");
-			(void)music_db_refresh(app->music_db);
-			break;
-
-		case REFRESH_MUSIC_DB_FINISHED:
-			music_db_refresh_finish(app->music_db);
-			break;
-
-		default:
-			log_error("Unknown action: %d", action);
-			break;
-		}
-	}
-
-	return 0;
-}
-
-void
-basileus_trigger_action(basileus_action_t action)
-{
-	ssize_t w;
-
-	assert(mainloop_fd != -1);
-
-retry:
-	w = send(mainloop_fd, &action, sizeof(action), 0);
-	if (w < 0) {
-		if (errno == EINTR) {
-			goto retry;
-		}
-		log_error("Failed to send message to application main loop (%d)!", errno);
-		exit(-1);
-	}
-	assert(w == sizeof(action));
+	return ret;
 }

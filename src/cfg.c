@@ -46,8 +46,8 @@ static const struct {
 	{ CFG_LISTENING_PORT,    "listening-port",    DEFAULT_LISTENING_PORT },
 	{ CFG_DOCUMENT_ROOT,     "document-root",     DEFAULT_DOCUMENT_ROOT },
 	{ CFG_DATABASE_PATH,     "database-path",     DEFAULT_DB_PATH },
-	{ CFG_MONGOOSE_THREADS,  "mongoose-threads",  DEFAULT_MONGOOSE_THREADS },
-	{ CFG_MUSIC_DIR,         "music-dir",         DEFAULT_MUSIC_DIR }
+	{ CFG_MUSIC_DIR,         "music-dir",         DEFAULT_MUSIC_DIR },
+	{ CFG_SCHEDULER_THREADS, "scheduler-threads", "0" }
 };
 
 typedef struct {
@@ -141,8 +141,6 @@ _parse_config_file(_cfg_t *cfg, const char *file)
 		return -1;
 	}
 
-	log_debug("Parsing config file: %s", file);
-
 	errno = 0;
 	while (-1 != getline(&lineptr, &line_len, cf)) {
 		if (_is_comment(lineptr)) {
@@ -171,8 +169,6 @@ _parse_config_file(_cfg_t *cfg, const char *file)
 		return -1;
 	}
 
-	log_debug("Configuration file parsed successfully");
-
 	return 0;
 }
 
@@ -194,13 +190,13 @@ cfg_init(const char* cfg_path)
 		return NULL;
 	}
 
-#ifdef _DEBUG
 	int idx;
-	log_debug("Configuration:");
+	log_info("Configuration:");
 	for (idx = 0; idx < CFG_KEY_LAST; idx++) {
-		log_debug("\t%s = %s", options_table[idx].key_str, cfg_get_str(_cfg, idx));
+		log_info(" * %s = %s", options_table[idx].key_str, cfg_get_str(_cfg, idx));
 	}
-#endif
+
+	log_debug("Configuration file parsed successfully");
 
 	return _cfg;
 }

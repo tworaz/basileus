@@ -46,13 +46,14 @@
 #include "logger.h"
 #include "music_db.h"
 #include "music_tag.h"
-#include "basileus.h"
 #include "basileus-music-db.h"
 
 typedef struct {
 	sqlite3	        *db;
-	cfg_t	        *cfg;
 	sqlite3_mutex	*db_mutex;
+
+	cfg_t	        *cfg;
+	scheduler_t     *scheduler;
 
 	pthread_mutex_t	 scan_mutex;
 	pthread_t        scan_thread;
@@ -275,7 +276,7 @@ music_db_add_file(_music_db_t *mdb, const char *path)
 
 	tag = music_tag_create(path);
 	if (tag == NULL) {
-		log_debug("Failed to read tags from file: %s", path);
+		log_debug("No audio metadata found in: %s", path);
 		return 0;
 	}
 
@@ -397,6 +398,14 @@ music_db_scan_directory(_music_db_t *mdb, const char *dir)
 	return ret;
 }
 
+static void
+_music_db_scan_finished(void *data)
+{
+	_music_db_t *_mdb = data;
+	log_debug("Scan finished, joining scan thread");
+	pthread_join(_mdb->scan_thread, NULL);
+}
+
 static void *
 music_db_scan_thread(void *data)
 {
@@ -420,7 +429,21 @@ music_db_scan_thread(void *data)
 		log_info("Music collection scan complete.");
 	}
 
-	basileus_trigger_action(REFRESH_MUSIC_DB_FINISHED);
+	event_t *e = malloc(sizeof(event_t));
+	if (e == NULL) {
+		log_error("Failed to allocate memory for event_t!");
+		pthread_exit(0);
+	}
+	memset(e, 0, sizeof(event_t));
+
+	e->name = "Music database scan finished";
+	e->run = _music_db_scan_finished;
+	e->user_data = mdb;
+	if (0 != scheduler_add_event(mdb->scheduler, e)) {
+		log_error("Failed to schedule new event!");
+		free(e);
+	}
+
 	pthread_exit(0);
 }
 
@@ -434,7 +457,7 @@ _sqlite3_profile(void *d, const char *txt, sqlite3_uint64 time)
 #endif
 
 music_db_t
-music_db_init(cfg_t *cfg)
+music_db_new(cfg_t *cfg, scheduler_t *sched)
 {
 	_music_db_t *mdb;
 	char *errmsg;
@@ -469,18 +492,19 @@ music_db_init(cfg_t *cfg)
 
 	if (NULL == (mdb->db_mutex = sqlite3_mutex_alloc(SQLITE_MUTEX_RECURSIVE))) {
 		log_error("Failed to allocate sqlite3 mutex!");
-		music_db_shutdown(mdb);
+		music_db_free(mdb);
 		return NULL;
 	}
 
-	if (sqlite3_open(cfg_get_str(cfg, CFG_DATABASE_PATH), &mdb->db)) {
+	if (SQLITE_OK != sqlite3_open(cfg_get_str(cfg, CFG_DATABASE_PATH), &mdb->db)) {
 #ifdef _DEBUG
+		sqlite3_close(mdb->db);
 		if (SQLITE_OK == sqlite3_open("basileus-dev.sqlite3", &mdb->db)) {
 			goto devdb;
 		}
 #endif
 		log_error("Failed to open database!");
-		music_db_shutdown(mdb);
+		music_db_free(mdb);
 		return NULL;
 	}
 
@@ -495,11 +519,12 @@ devdb:
 	if (sqlite3_exec(mdb->db, create_basileus_db_str, NULL, NULL, &errmsg)) {
 		log_error("Failed to create database: %s!", errmsg);
 		sqlite3_free(errmsg);
-		music_db_shutdown(mdb);
+		music_db_free(mdb);
 		return NULL;
 	}
 
 	mdb->cfg = cfg;
+	mdb->scheduler = sched;
 	mdb->scan_in_progress = 0;
 	mdb->scan_terminate = 0;
 
@@ -507,7 +532,7 @@ devdb:
 }
 
 void
-music_db_shutdown(music_db_t mdb)
+music_db_free(music_db_t mdb)
 {
 	_music_db_t *_mdb = mdb;
 
@@ -540,9 +565,9 @@ music_db_refresh(music_db_t mdb)
 	_music_db_t *_mdb = mdb;
 	int ret = 0;
 
-	if ((ret = pthread_mutex_lock(&_mdb->scan_mutex))) {
+	if (0 != (ret = pthread_mutex_lock(&_mdb->scan_mutex))) {
 		log_error("Failed to lock scan mutex: %d!", ret);
-		return 1;
+		return ret;
 	}
 
 	if (_mdb->scan_in_progress) {
@@ -567,13 +592,6 @@ cleanup:
 	}
 
 	return ret;
-}
-
-void
-music_db_refresh_finish(music_db_t mdb)
-{
-	_music_db_t *_mdb = mdb;
-	pthread_join(_mdb->scan_thread, NULL);
 }
 
 int

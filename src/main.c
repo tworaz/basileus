@@ -58,7 +58,7 @@ print_help(const char *progname)
 int main(int argc, char **argv)
 {
 	const char *cfg_file_path = NULL;
-	basileus_t bhnd;
+	basileus_t *bhnd;
 	int opt;
 
 #ifndef _DEBUG

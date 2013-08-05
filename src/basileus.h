@@ -30,24 +30,15 @@
 #ifndef _BASILEUS_H_
 #define _BASILEUS_H_
 
-typedef void * basileus_t;
+typedef void basileus_t;
 
-typedef enum {
-	TERMINATE,
-	REFRESH_MUSIC_DB,
-	REFRESH_MUSIC_DB_FINISHED,
-} basileus_action_t;
-
-basileus_t
+basileus_t *
 basileus_init(const char *config_path);
 
 void
-basileus_shutdown(basileus_t);
+basileus_shutdown(basileus_t *);
 
 int
-basileus_run(basileus_t);
-
-void
-basileus_trigger_action(basileus_action_t);
+basileus_run(basileus_t *);
 
 #endif /* !_BASILEUS_H_ */

@@ -27,20 +27,47 @@
  * SUCH DAMAGE.
  */
 
-#ifndef _WEBSERVER_H_
-#define _WEBSERVER_H_
+#ifndef _SCHEDULER_H_
+#define _SCHEDULER_H_
 
 #include <event2/event.h>
 
 #include "cfg.h"
-#include "music_db.h"
 
-typedef void * webserver_t;
+typedef void scheduler_t;
 
-webserver_t
-webserver_init(cfg_t *cfg, music_db_t *db, struct event_base *evb);
+typedef enum {
+	TASK_STATUS_FINISHED = 0,
+	TASK_STATUS_YIELD    = 1,
+	TASK_STATUS_CANCELED = 2,
+	TASK_STATUS_FAILED   = 3
+} task_status_t;
+
+typedef struct {
+	const char     *name;
+	void           *user_data;
+	task_status_t  (*run)       (void *user_data);
+	void           (*finished)  (void *user_data);
+	void           (*failed)    (void *user_data);
+	void           (*cancel)    (void *user_data);
+} task_t;
+
+typedef struct {
+	const char     *name;
+	void           *user_data;
+	void           (*run)(void *user_data);
+} event_t;
+
+scheduler_t *
+scheduler_new(cfg_t *config, struct event_base *evb);
 
 void
-webserver_shutdown(webserver_t ws);
+scheduler_free(scheduler_t *);
 
-#endif /* _WEBSERVER_H_ */
+int
+scheduler_add_task(scheduler_t *sched, task_t *task);
+
+int
+scheduler_add_event(scheduler_t *sched, event_t *event);
+
+#endif /* _SCHEDULRER_H_ */

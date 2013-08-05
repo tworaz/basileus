@@ -32,7 +32,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <pthread.h>
 #include <stdint.h>
 
 #include <sys/stat.h>
@@ -40,7 +39,6 @@
 
 #include <event2/http.h>
 #include <event2/event.h>
-#include <event2/thread.h>
 #include <event2/buffer.h>
 #include <event2/keyvalq_struct.h>
 
@@ -51,11 +49,9 @@
 typedef struct {
 	cfg_t      *cfg;
 	music_db_t *music_db;
-	pthread_t   thread;
 
 	const char *doc_root;
 
-	struct event_base          *ev_base;
 	struct evhttp              *ev_http;
 	struct evhttp_bound_socket *ev_sock;
 } _webserver_t;
@@ -522,30 +518,11 @@ cleanup:
 	}
 }
 
-static void *
-_webserver_thread(void *data)
-{
-	_webserver_t *ws = data;
-
-	log_info("Web server thread started");
-
-	event_base_dispatch(ws->ev_base);
-
-	log_info("Web server thread exiting...");
-
-	pthread_exit(0);
-}
-
 webserver_t
-webserver_init(cfg_t *cfg, music_db_t *db)
+webserver_init(cfg_t *cfg, music_db_t *db, struct event_base *evb)
 {
 	_webserver_t *ws;
 	int i;
-
-	if (0 != evthread_use_pthreads()) {
-		log_error("Failed to instruct libevent to use pthreads!");
-		return NULL;
-	}
 
 	ws = malloc(sizeof(_webserver_t));
 	if (ws == NULL) {
@@ -554,13 +531,7 @@ webserver_init(cfg_t *cfg, music_db_t *db)
 	}
 	memset(ws, 0, sizeof(_webserver_t));
 
-	ws->ev_base = event_base_new();
-	if (!ws->ev_base) {
-		log_error("Failed to create event_base!");
-		goto failure;
-	}
-
-	ws->ev_http = evhttp_new(ws->ev_base);
+	ws->ev_http = evhttp_new(evb);
 	if (!ws->ev_http) {
 		log_error("Failed to create evhttp!");
 		goto failure;
@@ -586,11 +557,6 @@ webserver_init(cfg_t *cfg, music_db_t *db)
 		goto failure;
 	}
 
-	if (pthread_create(&ws->thread, NULL, &_webserver_thread, ws)) {
-		log_error("Failed to createwebserver thread!");
-		goto failure;
-	}
-
 	ws->cfg = cfg;
 	ws->music_db = db;
 	ws->doc_root = cfg_get_str(cfg, CFG_DOCUMENT_ROOT);
@@ -603,9 +569,6 @@ failure:
 	if (ws->ev_http) {
 		evhttp_free(ws->ev_http);
 	}
-	if (ws->ev_base) {
-		event_base_free(ws->ev_base);
-	}
 	free(ws);
 	return NULL;
 }
@@ -614,14 +577,6 @@ void
 webserver_shutdown(webserver_t ws)
 {
 	_webserver_t *_ws = ws;
-
-	if (0 != event_base_loopexit(_ws->ev_base, NULL)) {
-		log_error("Failed to cleanly terminate web server!");
-		return;
-	}
-	pthread_join(_ws->thread, NULL);
-
 	evhttp_free(_ws->ev_http);
-	event_base_free(_ws->ev_base);
 	free(_ws);
 }

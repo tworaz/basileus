@@ -282,7 +282,7 @@ music_db_add_file(_music_db_t *mdb, const char *path)
 		return 0;
 	}
 
-	log_trace("Adding file to database: %s", path);
+	log_debug("Adding file to database: %s", path);
 
 	if (0 != _music_db_add_artist(mdb, tag->artist, &artist_id)) {
 		log_error("Failed to add artist \"%s\" to music database!", tag->artist);

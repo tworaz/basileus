@@ -30,13 +30,15 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
+#include <stdarg.h>
+
 /* Supported message types.*/
 typedef enum {
 	INFO,
 	WARNING,
 	ERROR,
 #ifdef _DEBUG
-	DBG,
+	DEBUG,
 	TRACE,
 #endif /* DEBUG */
 } MESSAGE_TYPE;
@@ -44,22 +46,30 @@ typedef enum {
 extern int logger_use_color;
 extern int logger_show_trace;
 
+void
+logger_init();
+
 /**
  * Main logging routine. Should not be used directly.
  * Please use log_<type> macros.
- * @param type Type of message to log
- * @param format Message format
  */
 void
-log_message(MESSAGE_TYPE type, const char* format, ...);
+log_message(MESSAGE_TYPE type, int add_newline, const char* format, ...);
+
+/**
+ * Logging function similar to log_message, but taking va_list as last argument.
+ * Useul when integration with external logging subsystems.
+ */
+void
+vlog_message(MESSAGE_TYPE type, int add_newline, const char *fmt, va_list vl);
 
 /* Logging macros. */
-#define log_info(format, args...)    log_message(INFO, format, ## args)
-#define log_warning(format, args...) log_message(WARNING, format, ## args)
-#define log_error(format, args...)   log_message(ERROR, format, ## args)
+#define log_info(format, args...)    log_message(INFO, 1, format, ## args)
+#define log_warning(format, args...) log_message(WARNING, 1, format, ## args)
+#define log_error(format, args...)   log_message(ERROR, 1, format, ## args)
 #ifdef _DEBUG
-#define log_debug(format, args...)   log_message(DBG, format, ## args)
-#define log_trace(format, args...)   log_message(TRACE, format, ## args)
+#define log_debug(format, args...)   log_message(DEBUG, 1, format, ## args)
+#define log_trace(format, args...)   log_message(TRACE, 1, format, ## args)
 #else
 #define log_debug(format, args...)
 #define log_trace(format, args...)

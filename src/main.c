@@ -67,6 +67,8 @@ int main(int argc, char **argv)
 #define _GETOPT_OPTSTR "c:nhtv"
 #endif
 
+	logger_init();
+
 	while ((opt = getopt(argc, argv, _GETOPT_OPTSTR)) != -1) {
 		switch (opt) {
 		case 'c':

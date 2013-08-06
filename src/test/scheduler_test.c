@@ -149,9 +149,12 @@ main(int argc, char *argv[])
 	struct event_base *evb;
 	int ret = 0;
 
+	logger_init();
 	logger_show_trace = 0;
 
+#ifndef _VALGRIND
 	event_enable_debug_mode();
+#endif /* _VALGRIND */
 	evb = event_base_new();
 	if (!evb) {
 		log_error("Failed to create event_base!");
@@ -165,7 +168,9 @@ main(int argc, char *argv[])
 		log_error("Failed to make event base notifiable!");
 		goto error;
 	}
+#ifndef _VALGRIND
 	evthread_enable_lock_debuging();
+#endif /* _VALGRIND */
 
 	sigevent = evsignal_new(evb, SIGINT, _sighandler, evb);
 	if (!sigevent || event_add(sigevent, NULL) < 0) {

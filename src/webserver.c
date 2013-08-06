@@ -81,7 +81,7 @@ static const struct table_entry {
 static const char *
 _guess_content_type(const char *path)
 {
-	const char *last_period, *extension;
+	const char *last_period, *extension = NULL;
 	const struct table_entry *ent;
 	last_period = strrchr(path, '.');
 	if (!last_period || strchr(last_period, '/'))
@@ -93,9 +93,7 @@ _guess_content_type(const char *path)
 	}
 
 not_found:
-#ifdef _DEBUG
 	log_warning("No MIME type for: %s", extension);
-#endif /* _DEBUG */
 	return "application/octet-stream";
 }
 

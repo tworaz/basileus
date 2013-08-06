@@ -70,7 +70,7 @@ _execute_tasks(_scheduler_t *sched)
 	task_status_t status;
 	task_t *task = NULL;
 
-	while (1) {
+	while (!sched->terminate) {
 		pthread_mutex_lock(&sched->mutex);
 
 		if (SIMPLEQ_EMPTY(&sched->task_queue)) {
@@ -116,6 +116,7 @@ static void *
 _worker_thread(void *arg)
 {
 	_scheduler_t *ts = arg;
+	task_queue_elm_t *telm = NULL;
 	int id = -1;
 
 	pthread_mutex_lock(&ts->mutex);
@@ -145,6 +146,16 @@ _worker_thread(void *arg)
 		pthread_mutex_unlock(&ts->mutex);
 
 		_execute_tasks(ts);
+	}
+
+	if (id == 1) {
+		log_debug("Scheduler: Invoking cancel callbacks for pending tasks");
+		SIMPLEQ_FOREACH(telm, &ts->task_queue, queue) {
+			log_trace("Canceling task: %p", telm->task);
+			if (telm->task->cancel) {
+				telm->task->cancel(telm->task->user_data);
+			}
+		}
 	}
 
 	pthread_mutex_unlock(&ts->mutex);
@@ -291,16 +302,11 @@ scheduler_free(scheduler_t *sch)
 
 	pthread_mutex_lock(&ts->mutex);
 	ts->terminate = 1;
-	SIMPLEQ_FOREACH(telm, &ts->task_queue, queue) {
-		if (telm->task->cancel) {
-			telm->task->cancel(telm->task->user_data);
-		}
-	}
 	pthread_mutex_unlock(&ts->mutex);
 
 	pthread_cond_broadcast(&ts->cv);
 
-	for (i = 0; i < ts->workers_count; i++) {
+	for (i = ts->workers_count - 1; i >= 0; i--) {
 		pthread_join(ts->workers[i], NULL);
 	}
 
@@ -338,7 +344,6 @@ scheduler_add_task(scheduler_t *s, task_t *task)
 {
 	_scheduler_t *sched = s;
 	task_queue_elm_t *elm = NULL;
-	int ret = 0;
 
 	log_debug("Scheduler: Adding new task: %s", task->name);
 
@@ -358,7 +363,7 @@ scheduler_add_task(scheduler_t *s, task_t *task)
 	log_trace("Scheduler: Waking up worker thread");
 	pthread_cond_signal(&sched->cv);
 
-	return ret;
+	return 0;
 }
 
 int

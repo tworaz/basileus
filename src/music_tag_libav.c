@@ -83,7 +83,6 @@ music_tag_create(const char *file)
 
 	static int libav_initialized = 0;
 	if (!libav_initialized) {
-		av_log_set_level(AV_LOG_QUIET);
 		av_register_all();
 		libav_initialized = 1;
 	}
